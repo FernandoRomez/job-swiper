@@ -1,0 +1,8 @@
+{
+  "ai_provider": "gemini",
+  "gemini_key": "",
+  "gemini_model": "gemini-3.5-flash",
+  "mcp_timeout": 900,
+  "base_cv": "",
+  "profile": {}
+}

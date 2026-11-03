@@ -1,0 +1,40 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap");
+@page { size: A4; margin: 0; }
+html, body { margin: 0; padding: 0; }
+.tpl-tecnico { box-sizing: border-box; width: 210mm; min-height: 297mm; padding: 11mm 13mm; margin: 0 auto; background: #fff;
+  font-family: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; color: #1a1a1a; font-size: 9.6pt; line-height: 1.36;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow-wrap: anywhere; }
+.tpl-tecnico *, .tpl-tecnico *::before, .tpl-tecnico *::after { box-sizing: border-box; }
+.tpl-tecnico h1, .tpl-tecnico h2, .tpl-tecnico p, .tpl-tecnico ul { margin: 0; }
+.tpl-tecnico ul { padding-left: 14px; }
+.tpl-tecnico li { margin: 1px 0; }
+.tpl-tecnico .row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.tpl-tecnico .role { font-weight: 700; }
+.tpl-tecnico .date { white-space: nowrap; flex: none; }
+.tpl-tecnico .item { margin-top: 5px; break-inside: avoid; }
+.tpl-tecnico .line { margin-top: 3px; }
+.tpl-tecnico .certs-inline > span + span::before { content: "; "; }
+.tpl-tecnico .ubic:empty, .tpl-tecnico [data-field]:empty { display: none; }
+.tpl-tecnico [data-field]:focus { outline: 1px dashed rgba(0,0,0,.25); outline-offset: 1px; }
+.tpl-tecnico .tsep { font-size: 0; }
+@media print { .tpl-tecnico { margin: 0; } }
+.tpl-tecnico { font-size: 8.9pt; line-height: 1.32; color: #1b1f24; }
+.tpl-tecnico header { border-left: 4px solid #2563eb; padding-left: 9px; margin-bottom: 4px; }
+.tpl-tecnico h1 { font-size: 19pt; font-weight: 700; letter-spacing: -.3px; }
+.tpl-tecnico .titular { font-family: 'IBM Plex Mono', monospace; font-size: 9pt; color: #2563eb; margin: 1px 0 3px; }
+.tpl-tecnico .contact, .tpl-tecnico .ubic { font-size: 8.3pt; color: #4b5563; }
+.tpl-tecnico .dot { font-style: normal; color: #2563eb; }
+.tpl-tecnico h2 { font-family: 'IBM Plex Mono', monospace; font-size: 8.6pt; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; color: #2563eb; margin: 7px 0 3px; padding-bottom: 1px; border-bottom: 1px solid #dbe4f3; }
+.tpl-tecnico h2::before { content: "// "; color: #93a9d6; }
+.tpl-tecnico .grid2 { display: grid; grid-template-columns: 1.55fr 1fr; gap: 6mm; }
+.tpl-tecnico .grid2 .item:first-child { margin-top: 0; }
+.tpl-tecnico .skgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6mm; }
+.tpl-tecnico .skgroup { display: grid; grid-template-columns: 24mm 1fr; gap: 4px; align-items: start; }
+.tpl-tecnico .skname { font-weight: 600; font-size: 8.4pt; padding-top: 1px; }
+.tpl-tecnico .tags { display: flex; flex-wrap: wrap; gap: 2px; }
+.tpl-tecnico .tag { background: #eef3fd; border: 0.5px solid #c9d8f5; color: #1e3a8a; border-radius: 3px; padding: 0 4px; font-size: 7.9pt; }
+.tpl-tecnico .item { margin-top: 4px; }
+.tpl-tecnico .org { color: #2563eb; font-weight: 500; font-size: 8.5pt; }
+.tpl-tecnico .date { font-family: 'IBM Plex Mono', monospace; font-size: 8pt; color: #6b7280; }
+.tpl-tecnico li::marker { color: #2563eb; }
+.tpl-tecnico .certs { columns: 2; column-gap: 6mm; }

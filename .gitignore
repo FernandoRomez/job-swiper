@@ -1,0 +1,28 @@
+# --- Secretos y datos personales (NUNCA subir) ---
+config.json
+perfil.json
+.env
+.env.*
+!.env.example
+.linkedin-profile/
+
+# --- Datos generados / personales ---
+*.db
+*.db-journal
+config.mock.json
+resumes/
+resumes_mock/
+cola/
+studio/docs/
+studio/static/templates/preview.html
+Design.pdf
+
+# --- Entorno / IDE / SO ---
+.venv/
+venv/
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+.claude/
+.DS_Store

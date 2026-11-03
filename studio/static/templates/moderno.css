@@ -1,0 +1,34 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@page { size: A4; margin: 0; }
+html, body { margin: 0; padding: 0; }
+.tpl-moderno { box-sizing: border-box; width: 210mm; min-height: 297mm; padding: 0 15mm 12mm; margin: 0 auto; background: #fff;
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a; font-size: 9.6pt; line-height: 1.36;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow-wrap: anywhere; }
+.tpl-moderno *, .tpl-moderno *::before, .tpl-moderno *::after { box-sizing: border-box; }
+.tpl-moderno h1, .tpl-moderno h2, .tpl-moderno p, .tpl-moderno ul { margin: 0; }
+.tpl-moderno ul { padding-left: 14px; }
+.tpl-moderno li { margin: 1px 0; }
+.tpl-moderno .row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.tpl-moderno .role { font-weight: 700; }
+.tpl-moderno .date { white-space: nowrap; flex: none; }
+.tpl-moderno .item { margin-top: 5px; break-inside: avoid; }
+.tpl-moderno .line { margin-top: 3px; }
+.tpl-moderno .certs-inline > span + span::before { content: "; "; }
+.tpl-moderno .ubic:empty, .tpl-moderno [data-field]:empty { display: none; }
+.tpl-moderno [data-field]:focus { outline: 1px dashed rgba(0,0,0,.25); outline-offset: 1px; }
+.tpl-moderno .tsep { font-size: 0; }
+@media print { .tpl-moderno { margin: 0; } }
+.tpl-moderno header { background: #1f4e79; color: #fff; margin: 0 -15mm 12px; padding: 12mm 15mm 9mm; position: relative; }
+.tpl-moderno header::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #f2a541; }
+.tpl-moderno h1 { font-size: 23pt; font-weight: 800; letter-spacing: -.5px; }
+.tpl-moderno .titular { font-size: 10.8pt; font-weight: 500; color: #cfe2f3; margin: 2px 0 6px; }
+.tpl-moderno .contact, .tpl-moderno .ubic { font-size: 8.8pt; color: #e8f0f8; }
+.tpl-moderno .dot { font-style: normal; color: #f2a541; padding: 0 2px; }
+.tpl-moderno { font-size: 9.4pt; }
+.tpl-moderno h2 { font-size: 10pt; color: #1f4e79; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; margin: 10px 0 4px; display: flex; align-items: center; gap: 8px; }
+.tpl-moderno h2::after { content: ""; flex: 1; height: 1px; background: #c9d6e3; }
+.tpl-moderno .org { color: #1f4e79; font-weight: 600; font-size: 9pt; }
+.tpl-moderno .date { color: #666; font-size: 8.8pt; }
+.tpl-moderno .skills { list-style: none; padding: 0; }
+.tpl-moderno .skills b { color: #1f4e79; }
+.tpl-moderno li::marker { color: #f2a541; }

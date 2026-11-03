@@ -1,0 +1,27 @@
+@page { size: A4; margin: 0; }
+html, body { margin: 0; padding: 0; }
+.tpl-carta-ats-clasico { box-sizing: border-box; width: 210mm; min-height: 297mm; padding: 22mm 22mm; margin: 0 auto; background: #fff;
+  font-family: Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 9.6pt; line-height: 1.36;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow-wrap: anywhere; }
+.tpl-carta-ats-clasico *, .tpl-carta-ats-clasico *::before, .tpl-carta-ats-clasico *::after { box-sizing: border-box; }
+.tpl-carta-ats-clasico h1, .tpl-carta-ats-clasico h2, .tpl-carta-ats-clasico p, .tpl-carta-ats-clasico ul { margin: 0; }
+.tpl-carta-ats-clasico ul { padding-left: 14px; }
+.tpl-carta-ats-clasico li { margin: 1px 0; }
+.tpl-carta-ats-clasico .row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.tpl-carta-ats-clasico .role { font-weight: 700; }
+.tpl-carta-ats-clasico .date { white-space: nowrap; flex: none; }
+.tpl-carta-ats-clasico .item { margin-top: 5px; break-inside: avoid; }
+.tpl-carta-ats-clasico .line { margin-top: 3px; }
+.tpl-carta-ats-clasico .certs-inline > span + span::before { content: "; "; }
+.tpl-carta-ats-clasico .ubic:empty, .tpl-carta-ats-clasico [data-field]:empty { display: none; }
+.tpl-carta-ats-clasico [data-field]:focus { outline: 1px dashed rgba(0,0,0,.25); outline-offset: 1px; }
+.tpl-carta-ats-clasico .tsep { font-size: 0; }
+@media print { .tpl-carta-ats-clasico { margin: 0; } }
+.tpl-carta-ats-clasico { font-size: 10.8pt; line-height: 1.5; color: #111; }
+.tpl-carta-ats-clasico h1 { font-size: 20pt; }
+.tpl-carta-ats-clasico .titular { font-weight: 700; margin: 1px 0 3px; }
+.tpl-carta-ats-clasico .contact, .tpl-carta-ats-clasico .ubic { font-size: 9.4pt; color: #333; }
+.tpl-carta-ats-clasico .dot { font-style: normal; }
+.tpl-carta-ats-clasico header { border-bottom: 1.3px solid #111; padding-bottom: 8px; }
+.tpl-carta-ats-clasico .letter p { margin: 0 0 11px; }
+.tpl-carta-ats-clasico .letter .date { margin: 18px 0 16px; }

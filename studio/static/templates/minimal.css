@@ -1,0 +1,36 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;600;700&display=swap");
+@page { size: A4; margin: 0; }
+html, body { margin: 0; padding: 0; }
+.tpl-minimal { box-sizing: border-box; width: 210mm; min-height: 297mm; padding: 18mm 18mm 14mm; margin: 0 auto; background: #fff;
+  font-family: 'Inter Tight', 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a; font-size: 9.6pt; line-height: 1.36;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow-wrap: anywhere; }
+.tpl-minimal *, .tpl-minimal *::before, .tpl-minimal *::after { box-sizing: border-box; }
+.tpl-minimal h1, .tpl-minimal h2, .tpl-minimal p, .tpl-minimal ul { margin: 0; }
+.tpl-minimal ul { padding-left: 14px; }
+.tpl-minimal li { margin: 1px 0; }
+.tpl-minimal .row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.tpl-minimal .role { font-weight: 700; }
+.tpl-minimal .date { white-space: nowrap; flex: none; }
+.tpl-minimal .item { margin-top: 5px; break-inside: avoid; }
+.tpl-minimal .line { margin-top: 3px; }
+.tpl-minimal .certs-inline > span + span::before { content: "; "; }
+.tpl-minimal .ubic:empty, .tpl-minimal [data-field]:empty { display: none; }
+.tpl-minimal [data-field]:focus { outline: 1px dashed rgba(0,0,0,.25); outline-offset: 1px; }
+.tpl-minimal .tsep { font-size: 0; }
+@media print { .tpl-minimal { margin: 0; } }
+.tpl-minimal { font-size: 9.3pt; color: #222; font-weight: 400; }
+.tpl-minimal header { margin-bottom: 12px; }
+.tpl-minimal h1 { font-size: 26pt; font-weight: 700; letter-spacing: -1px; line-height: 1.05; }
+.tpl-minimal h1::after { content: "."; color: #e4572e; }
+.tpl-minimal .titular { font-size: 10.5pt; font-weight: 300; margin: 3px 0 6px; }
+.tpl-minimal .contact, .tpl-minimal .ubic { font-size: 8.5pt; color: #777; }
+.tpl-minimal .dot { font-style: normal; padding: 0 4px; color: #e4572e; }
+.tpl-minimal .sec { display: grid; grid-template-columns: 30mm 1fr; gap: 6mm; padding: 7px 0; border-top: 0.6px solid #e2e2e2; }
+.tpl-minimal h2 { font-size: 7.6pt; font-weight: 600; text-transform: uppercase; letter-spacing: 1.6px; color: #e4572e; padding-top: 2px; }
+.tpl-minimal .body > .item:first-child { margin-top: 0; }
+.tpl-minimal .role { font-weight: 600; }
+.tpl-minimal .org, .tpl-minimal .date { color: #888; font-size: 8.6pt; }
+.tpl-minimal ul { list-style: none; padding: 0; }
+.tpl-minimal .item li { padding-left: 10px; position: relative; }
+.tpl-minimal .item li::before { content: "–"; position: absolute; left: 0; color: #bbb; }
+.tpl-minimal .skills b { font-weight: 600; }

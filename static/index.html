@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobSwiper — Empleos estilo Tinder con IA</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="dot">💼</span> Job<span>Swiper</span></div>
+  <nav id="nav">
+    <button data-panel="chat" class="active">🤖 Asistente</button>
+    <button data-panel="swipe">🔥 Swipe</button>
+    <button data-panel="matches">💜 Matches <span class="badge" id="match-count">0</span></button>
+    <button data-panel="aplicar">📮 Aplicar</button>
+    <button data-panel="datos">🗄️ Base de datos</button>
+    <button data-panel="perfil">👤 Perfil</button>
+    <button data-panel="autojob">🚀 AutoJob</button>
+    <button data-panel="ajustes">⚙️ Ajustes</button>
+  </nav>
+  <button id="btn-scrape-all" class="scrape-all" title="Busca empleos en todas las plataformas (OCC, Indeed, Computrabajo, RemoteOK…) y los guarda en la base de datos">⚡ Scrapear empleos</button>
+</header>
+
+<main>
+
+  <!-- ================= PERFIL ================= -->
+  <section class="panel" id="panel-perfil">
+    <div class="box">
+      <h2>📄 Tu CV base</h2>
+      <p class="hint">Pega tu CV completo en texto (experiencia, educación, habilidades, certificaciones, contacto). Es la base con la que la IA adaptará cada documento. No inventará nada que no esté aquí.</p>
+      <textarea id="base-cv" rows="12" placeholder="Nombre completo · email · teléfono · ciudad&#10;&#10;PERFIL&#10;...&#10;&#10;EXPERIENCIA&#10;- Puesto en Empresa (año–año): logros...&#10;&#10;EDUCACIÓN&#10;...&#10;&#10;HABILIDADES / CERTIFICACIONES&#10;..."></textarea>
+    </div>
+
+    <div class="box">
+      <h2>🧭 Preguntas iniciales</h2>
+      <p class="hint">Con esto la IA elige los mejores títulos de puesto y prioriza empleos con más probabilidad de aceptación para tu perfil.</p>
+
+      <div class="row">
+        <div>
+          <label>Ciudad / ubicación actual</label>
+          <input id="p-location" placeholder="Raleigh, NC">
+        </div>
+        <div>
+          <label>Años de experiencia</label>
+          <input id="p-experience" placeholder="3">
+        </div>
+      </div>
+
+      <label>Nivel educativo</label>
+      <div class="chips" data-single id="p-education">
+        <div class="chip" data-v="Sin título">Sin título</div>
+        <div class="chip" data-v="Carrera técnica">Carrera técnica</div>
+        <div class="chip" data-v="Licenciatura">Licenciatura</div>
+        <div class="chip" data-v="Posgrado">Posgrado</div>
+      </div>
+
+      <label>Área / campo profesional</label>
+      <input id="p-field" placeholder="Infraestructura de datacenter, soporte IT, redes...">
+
+      <label>¿Estás dispuesto a reubicarte?</label>
+      <div class="chips" data-single id="p-relocate">
+        <div class="chip" data-v="No, solo mi ciudad">No, solo mi ciudad</div>
+        <div class="chip" data-v="Sí, a otras ciudades">Sí, a otras ciudades</div>
+        <div class="chip" data-v="Solo remoto">Solo remoto</div>
+      </div>
+
+      <label>Modalidad preferida</label>
+      <div class="chips" data-single id="p-modality">
+        <div class="chip" data-v="Presencial">Presencial</div>
+        <div class="chip" data-v="Híbrido">Híbrido</div>
+        <div class="chip" data-v="Remoto">Remoto</div>
+        <div class="chip" data-v="Indiferente">Indiferente</div>
+      </div>
+
+      <label>Nivel de puesto buscado</label>
+      <div class="chips" data-single id="p-seniority">
+        <div class="chip" data-v="Entry-level">Entry-level</div>
+        <div class="chip" data-v="Mid">Mid</div>
+        <div class="chip" data-v="Senior">Senior</div>
+      </div>
+
+      <label>Autorización para trabajar / país</label>
+      <input id="p-authorization" placeholder="Ciudadano/Residente USA, visa H1B, etc.">
+    </div>
+
+    <button class="primary" id="save-profile">💾 Guardar perfil</button>
+    <span class="ghost" id="goto-titles" style="margin-left:8px;cursor:pointer">✨ Sugerir puestos con IA →</span>
+    <div class="status" id="profile-status"></div>
+  </section>
+
+  <!-- ================= SWIPE ================= -->
+  <section class="panel" id="panel-swipe">
+    <div class="box">
+      <h2>🔗 LinkedIn</h2>
+      <p class="hint">Se abrirá un navegador real donde <b>tú</b> inicias sesión en LinkedIn. Nunca escribimos tu contraseña; la sesión queda guardada en tu equipo para próximas búsquedas.</p>
+      <div class="row" style="align-items:center">
+        <button class="ghost" id="btn-connect" style="flex:0">🔗 Conectar LinkedIn</button>
+        <span class="pill" id="li-pill"><span class="led"></span> Sin conectar</span>
+      </div>
+      <div class="status" id="connect-status"></div>
+    </div>
+
+    <div class="box">
+      <h2>✨ Puestos sugeridos por IA</h2>
+      <p class="hint">La IA propone búsquedas según tu perfil. Pulsa <b>Buscar TODAS</b> para scrapearlas todas en LinkedIn, o <b>🔍 Buscar</b> en una sola.</p>
+      <button class="ghost" id="btn-suggest">✨ Sugerir puestos</button>
+      <div id="suggest-list" style="margin-top:12px"></div>
+    </div>
+
+    <div class="box">
+      <h2>🔍 Buscar empleos (Easy Apply)</h2>
+      <div class="row">
+        <div style="flex:2"><label>Puesto / palabras clave</label><input id="s-keywords" placeholder="Data Center Technician"></div>
+        <div><label>Ubicación</label><input id="s-location" placeholder="Raleigh, NC"></div>
+        <div style="max-width:120px"><label>Ofertas</label>
+          <select id="s-limit"><option>5</option><option selected>10</option><option>15</option></select>
+        </div>
+      </div>
+      <button class="primary" id="btn-search" style="margin-top:14px">🔍 Buscar en LinkedIn</button>
+      <button class="ghost" id="btn-manual" style="margin-top:14px">➕ Agregar manual</button>
+      <div class="status" id="search-status"></div>
+    </div>
+
+    <div class="box" id="manual-box" style="display:none">
+      <h2>➕ Agregar oferta manual</h2>
+      <label>🔗 Link del empleo (LinkedIn)</label>
+      <div class="row" style="align-items:flex-end">
+        <div style="flex:3"><input id="m-url" placeholder="https://www.linkedin.com/jobs/view/1234567890/"></div>
+        <button class="ghost" id="btn-scrape" style="flex:0;white-space:nowrap">🔗 Traer datos</button>
+      </div>
+      <div class="status" id="scrape-status"></div>
+      <p class="hint">Pega el link del empleo y pulsa <b>Traer datos</b>: se rellenan solos los campos de abajo para que los revises antes de agregar. O rellénalos a mano.</p>
+      <div class="row">
+        <div><label>Puesto</label><input id="m-title"></div>
+        <div><label>Empresa</label><input id="m-company"></div>
+      </div>
+      <div class="row">
+        <div><label>Ubicación</label><input id="m-location"></div>
+        <div><label>Link para aplicar</label><input id="m-link"></div>
+      </div>
+      <label>Descripción</label>
+      <textarea id="m-desc" rows="6"></textarea>
+      <button class="primary" id="btn-add-manual" style="margin-top:12px">Agregar al mazo</button>
+    </div>
+
+    <div id="deck-wrap">
+      <div id="deck">
+        <div id="deck-empty">
+          <div style="font-size:46px">🃏</div>
+          <b>El mazo está vacío</b>
+          <span>Busca empleos arriba o agrégalos manualmente.</span>
+        </div>
+      </div>
+      <div id="deck-actions">
+        <button id="btn-nope" title="Descartar (←)">✕</button>
+        <button id="btn-like" title="Me interesa (→)">♥</button>
+      </div>
+      <div class="deck-hint">Arrastra la tarjeta, usa los botones o las flechas ← →. Deslizar ♥ genera automáticamente tu Resume, CV y Cover Letter para ese empleo.</div>
+    </div>
+  </section>
+
+  <!-- ================= MATCHES ================= -->
+  <section class="panel" id="panel-matches">
+    <div id="matches-list"></div>
+    <div class="empty-note" id="matches-empty">Aún no tienes matches.<br>Desliza ♥ los empleos que te interesen y aquí aparecerán tu Resume, CV y Cover Letter personalizados, con el link para aplicar. 💜</div>
+  </section>
+
+  <!-- ================= APLICAR ================= -->
+  <section class="panel" id="panel-aplicar">
+    <div class="box">
+      <h2>📮 Aplicar automáticamente (Easy Apply)</h2>
+      <p class="hint">La IA aplica por ti a tus matches: sube el <b>currículum generado</b> y responde las preguntas de LinkedIn según tu perfil. Si todas las respuestas van con alta confianza, <b>envía</b>; si alguna es dudosa o podría descalificarte, deja la solicitud como <b>borrador para que la revises</b> y sigue con la siguiente.</p>
+      <div class="apply-warn">⚠️ Se abrirá tu navegador de LinkedIn y actuará en tu nombre sobre ofertas reales. Empieza con pocas para validar el flujo. Debes tener LinkedIn conectado (pestaña Swipe).</div>
+      <p class="hint">📁 El currículum de cada empleo se guarda como PDF en la carpeta <code>resumes/</code> (<code>resume_&lt;empresa&gt;_&lt;puesto&gt;.pdf</code>). Al aplicar, se sube automáticamente el PDF que corresponde a esa empresa.</p>
+
+      <div id="apply-quota" class="apply-quota"></div>
+
+      <div class="apply-controls">
+        <label class="apply-mode">
+          Modo de envío:
+          <select id="apply-mode">
+            <option value="hybrid" selected>Híbrido — envía si hay confianza, revisa las dudosas</option>
+            <option value="review">Solo preparar — abre una pestaña por empleo, llena todo y la deja abierta para que revises (no envía)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="apply-select-toolbar">
+        <span class="apply-select-title">Elige a cuáles aplicar:</span>
+        <button class="ghost" data-sel="none">☐ Ninguno</button>
+        <button class="ghost" data-sel="pending">✅ Todos los no aplicados</button>
+        <span class="apply-random">
+          🎲 <input type="number" id="apply-random-n" min="1" value="3" style="width:60px">
+          <button class="ghost" data-sel="random">Aleatorios</button>
+        </span>
+      </div>
+      <div id="apply-select-list" class="apply-select-list"></div>
+
+      <button class="primary" id="btn-apply-start">🚀 Aplicar a los seleccionados (<span id="apply-sel-count">0</span>)</button>
+      <span class="ghost" id="btn-apply-refresh" style="margin-left:8px;cursor:pointer">↻ Actualizar</span>
+      <div class="status" id="apply-status"></div>
+
+      <div id="apply-progress" style="display:none">
+        <div class="autojob-progress-bar"><div class="autojob-progress-fill" id="apply-fill"></div></div>
+        <div class="autojob-progress-info">
+          <span id="apply-phase">Preparando...</span>
+          <span id="apply-detail" class="autojob-detail"></span>
+        </div>
+      </div>
+    </div>
+
+    <div id="apply-results"></div>
+    <div class="empty-note" id="apply-empty">Aún no has lanzado ninguna tanda de solicitudes. Ve a <b>Matches</b>, genera los documentos, y vuelve aquí. 📮</div>
+  </section>
+
+  <!-- ================= BASE DE DATOS ================= -->
+  <section class="panel" id="panel-datos">
+    <div class="box">
+      <div class="chat-head" style="padding:0 0 14px;border:none">
+        <div>
+          <h2 style="margin:0">🗄️ Empleos en la base de datos</h2>
+          <p class="hint" style="margin:2px 0 0" id="db-stats">Cargando...</p>
+        </div>
+        <button class="ghost" id="db-refresh">↻ Actualizar</button>
+      </div>
+      <div class="db-filters">
+        <input id="db-text" placeholder="🔍 Buscar por puesto, empresa o palabra...">
+        <input id="db-loc" placeholder="📍 Filtrar por ubicación (ej: Raleigh)">
+        <select id="db-filter">
+          <option value="">Todos los estados</option>
+          <option value="new">Nuevos (en el mazo)</option>
+          <option value="liked">Con me gusta</option>
+          <option value="passed">Descartados</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table id="db-table">
+          <thead>
+            <tr>
+              <th>Puesto</th><th>Empresa</th><th>Ubicación</th>
+              <th>Estado</th><th>Documentos</th><th>Aplicar</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="db-tbody"></tbody>
+        </table>
+      </div>
+      <div class="empty-note" id="db-empty" style="display:none">Todavía no hay empleos guardados. Ve a <b>Swipe</b> y busca.</div>
+    </div>
+  </section>
+
+  <!-- ================= CHAT ================= -->
+  <section class="panel active" id="panel-chat">
+    <div class="box" style="padding:0;overflow:hidden">
+      <div class="chat-head">
+        <div>
+          <h2 style="margin:0">🤖 Asistente de búsqueda</h2>
+          <p class="hint" style="margin:2px 0 0">Dime qué buscar y lo busco en LinkedIn, o pregúntame sobre tus empleos guardados.</p>
+        </div>
+        <button class="ghost" id="chat-clear">🧹 Limpiar</button>
+      </div>
+      <div id="chat-messages" class="chat-messages"></div>
+      <div class="chat-suggestions">
+        <button class="chip chat-suggestion">Busca datacenter technician en Raleigh NC</button>
+        <button class="chip chat-suggestion">Ahora lo mismo pero en Alemania</button>
+        <button class="chip chat-suggestion">Que no pidan ciudadanía americana</button>
+        <button class="chip chat-suggestion">¿Cuáles guardados hay en Raleigh?</button>
+      </div>
+      <div class="chat-input-bar">
+        <textarea id="chat-input" rows="1" placeholder="Dime qué buscar o pregúntame sobre tus empleos... (Enter para enviar)"></textarea>
+        <button class="primary" id="chat-send">Enviar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= AUTOJOB ================= -->
+  <section class="panel" id="panel-autojob">
+    <div class="box">
+      <h2>🚀 AutoJob — Encuentra tu mejor empleo</h2>
+      <p class="hint">La IA analiza TODOS tus empleos guardados en 3 rondas: evalúa cada uno, los compara entre sí, y genera un ranking Top 5. Incluye análisis de compatibilidad migratoria y elegibilidad para visa TN-1.</p>
+      <div class="autojob-controls">
+        <button class="primary" id="btn-autojob-start">🚀 Iniciar AutoJob</button>
+        <button class="ghost" id="btn-autojob-last" style="margin-left:8px">📊 Ver último resultado</button>
+      </div>
+      <div id="autojob-progress" style="display:none">
+        <div class="autojob-progress-bar">
+          <div class="autojob-progress-fill" id="autojob-fill"></div>
+        </div>
+        <div class="autojob-progress-info">
+          <span id="autojob-phase">Preparando...</span>
+          <span id="autojob-detail" class="autojob-detail"></span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="box" id="autojob-strategy-box" style="display:none">
+      <h2 style="color:var(--accent)">📋 Estrategia general de postulación</h2>
+      <p id="autojob-strategy" style="font-size:14px; line-height:1.6; margin-top:8px; white-space:pre-wrap;"></p>
+      <h3 style="font-size:14px; margin-top:14px;">Recomendaciones clave:</h3>
+      <ul id="autojob-recommendations" style="font-size:13.5px; line-height:1.6; margin-top:6px; padding-left:20px;"></ul>
+    </div>
+
+    <div class="box" id="autojob-questionnaire" style="display:none">
+      <h2 style="color:var(--accent2)">🧙‍♂️ Cuestionario de Afinación (Akinator)</h2>
+      <p class="hint" style="margin-bottom:15px">Responde estas preguntas breves basadas en los requisitos encontrados para afinar y encontrar tu empleo ideal.</p>
+      <div id="autojob-questions-list"></div>
+      <button class="primary" id="btn-autojob-submit-answers" style="margin-top:14px">Continuar Análisis ➔</button>
+    </div>
+
+    <div id="autojob-results"></div>
+    <div class="empty-note" id="autojob-empty">Lanza AutoJob para que la IA analice tus empleos y encuentre los mejores para ti. 🚀</div>
+  </section>
+
+  <!-- ================= AJUSTES ================= -->
+  <section class="panel" id="panel-ajustes">
+    <div class="box">
+      <h2>🤖 ¿Quién pone la IA?</h2>
+      <p class="hint">Elige de dónde sale la inteligencia que redacta tus CVs, evalúa ofertas y responde formularios.</p>
+      <div class="chips" data-single id="ai-provider">
+        <div class="chip" data-v="gemini">🔑 API de Google Gemini</div>
+        <div class="chip" data-v="mcp">🧠 Claude por MCP (sin API key)</div>
+      </div>
+      <div id="mcp-box" style="margin-top:14px" hidden>
+        <p class="hint">
+          JobSwiper le pasa cada petición a tu editor (Claude Code / Antigravity) a través del
+          servidor MCP <code>jobswiper</code>. No se usa ninguna API key y todo ocurre en tu equipo.
+          Arranca el servidor MCP en esta carpeta y, cuando la app necesite IA, pídele en el chat:
+          <em>«atiende las tareas de JobSwiper»</em>.
+        </p>
+        <div class="pill" id="mcp-pill"><span class="led"></span> Comprobando puente MCP…</div>
+        <div id="mcp-tasks" class="hint" style="margin-top:10px"></div>
+        <div class="row" style="margin-top:12px">
+          <div><label>Tiempo máx. de espera (segundos)</label>
+            <input type="number" id="mcp-timeout" min="60" max="3600" step="30" value="900" style="max-width:160px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="box" id="box-gemini">
+      <h2>🔑 API Key de Google Gemini</h2>
+      <p class="hint">Consíguela gratis en <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>. Se guarda en tu equipo (<code>config.json</code>) y las llamadas salen desde el servidor local, no desde el navegador. También puedes definir <code>GOOGLE_API_KEY</code> como variable de entorno.</p>
+      <div class="row">
+        <div style="flex:2"><label>API Key</label><input type="password" id="gemini-key" placeholder="AIza..."></div>
+        <div><label>Modelo</label>
+          <select id="gemini-model">
+            <option value="gemini-3.5-flash">gemini-3.5-flash (recomendado)</option>
+            <option value="gemini-3.5-pro">gemini-3.5-pro (mejor, más lento)</option>
+            <option value="gemini-3.0-flash">gemini-3.0-flash</option>
+          </select>
+        </div>
+      </div>
+      <button class="primary" id="save-settings" style="margin-top:14px">💾 Guardar ajustes</button>
+      <div class="status" id="settings-status"></div>
+    </div>
+    <div class="box">
+      <h2>🔔 Notificaciones</h2>
+      <p class="hint">Recibe un aviso del navegador cuando terminen de generarse tus documentos.</p>
+      <button class="ghost" id="btn-notif">🔔 Activar notificaciones</button>
+      <span class="status" id="notif-status" style="display:inline-block;margin-left:8px"></span>
+    </div>
+  </section>
+
+</main>
+
+<div id="mcp-banner" hidden>
+  <span class="mcp-spin">🤖</span>
+  <span id="mcp-banner-text">Esperando a Claude…</span>
+  <span class="mcp-hint">Pídele en tu chat: «atiende las tareas de JobSwiper»</span>
+</div>
+<div id="toast"></div>
+<script src="/static/docs.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@page { size: A4; margin: 0; }
+html, body { margin: 0; padding: 0; }
+.tpl-carta-moderno { box-sizing: border-box; width: 210mm; min-height: 297mm; padding: 0 15mm 12mm; margin: 0 auto; background: #fff;
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a; font-size: 9.6pt; line-height: 1.36;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow-wrap: anywhere; }
+.tpl-carta-moderno *, .tpl-carta-moderno *::before, .tpl-carta-moderno *::after { box-sizing: border-box; }
+.tpl-carta-moderno h1, .tpl-carta-moderno h2, .tpl-carta-moderno p, .tpl-carta-moderno ul { margin: 0; }
+.tpl-carta-moderno ul { padding-left: 14px; }
+.tpl-carta-moderno li { margin: 1px 0; }
+.tpl-carta-moderno .row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.tpl-carta-moderno .role { font-weight: 700; }
+.tpl-carta-moderno .date { white-space: nowrap; flex: none; }
+.tpl-carta-moderno .item { margin-top: 5px; break-inside: avoid; }
+.tpl-carta-moderno .line { margin-top: 3px; }
+.tpl-carta-moderno .certs-inline > span + span::before { content: "; "; }
+.tpl-carta-moderno .ubic:empty, .tpl-carta-moderno [data-field]:empty { display: none; }
+.tpl-carta-moderno [data-field]:focus { outline: 1px dashed rgba(0,0,0,.25); outline-offset: 1px; }
+.tpl-carta-moderno .tsep { font-size: 0; }
+@media print { .tpl-carta-moderno { margin: 0; } }
+.tpl-carta-moderno header { background: #1f4e79; color: #fff; margin: 0 -15mm 12px; padding: 12mm 15mm 9mm; position: relative; }
+.tpl-carta-moderno header::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #f2a541; }
+.tpl-carta-moderno h1 { font-size: 23pt; font-weight: 800; letter-spacing: -.5px; }
+.tpl-carta-moderno .titular { font-size: 10.8pt; font-weight: 500; color: #cfe2f3; margin: 2px 0 6px; }
+.tpl-carta-moderno .contact, .tpl-carta-moderno .ubic { font-size: 8.8pt; color: #e8f0f8; }
+.tpl-carta-moderno .dot { font-style: normal; color: #f2a541; padding: 0 2px; }
+.tpl-carta-moderno { font-size: 10.6pt; line-height: 1.55; padding-bottom: 20mm; }
+.tpl-carta-moderno header { margin-bottom: 14mm; }
+.tpl-carta-moderno .letter { padding: 0 6mm; }
+.tpl-carta-moderno .letter p { margin: 0 0 12px; }
+.tpl-carta-moderno .letter .date { color: #1f4e79; font-weight: 600; margin-bottom: 16px; }

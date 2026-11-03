@@ -1,0 +1,33 @@
+{
+  "nombre": "Ada Lovelace",
+  "email": "tu@email.com",
+  "tel_mx": "+52 000 000 0000",
+  "tel_us": "+1 (000) 000-0000",
+  "linkedin": "linkedin.com/in/tu-usuario",
+  "web": "tusitio.com",
+  "ciudad": {
+    "es": "Ciudad, País",
+    "en": "City, Country"
+  },
+  "escuela_corta": "Tu Universidad",
+  "edu": {
+    "es": {
+      "titulo": "Ingeniería en ...",
+      "escuela": "Tu Universidad, Ciudad",
+      "fechas": "2020 – 2024",
+      "certs": [
+        "Certificación (2024)"
+      ],
+      "idiomas": "Español (nativo) · Inglés (B2)"
+    },
+    "en": {
+      "titulo": "B.Eng. in ...",
+      "escuela": "Your University, City",
+      "fechas": "2020 – 2024",
+      "certs": [
+        "Certification (2024)"
+      ],
+      "idiomas": "Spanish (native) · English (B2)"
+    }
+  }
+}

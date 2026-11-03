@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <header class="brand">
+      <div class="logo"><span>JS</span></div>
+      <div><h1>Job Studio</h1><p id="stats-line">Cargando…</p></div>
+      <button class="icon-btn" id="theme-btn" title="Cambiar tema">◐</button>
+    </header>
+    <div class="stats" id="stats"></div>
+
+    <details class="scrape" id="scrape">
+      <summary>Buscar empleos</summary>
+      <div class="scrape-body">
+        <input id="sc-query" placeholder="Puesto, p. ej. ingeniero de automatización">
+        <input id="sc-loc" placeholder="Ubicación, p. ej. México">
+        <div class="checks" id="sc-sources"></div>
+        <button class="btn primary" id="sc-run">Buscar empleos</button>
+        <pre class="log" id="sc-log" hidden></pre>
+      </div>
+    </details>
+
+    <div class="filters">
+      <input id="q" type="search" placeholder="Buscar puesto o empresa  ( / )">
+      <div class="chips" id="src-chips"></div>
+      <div class="row">
+        <select id="f-status">
+          <option value="">Todos los estados</option>
+          <option value="new">Nuevos</option>
+          <option value="liked">Me interesan</option>
+          <option value="passed">Descartados</option>
+          <option value="applied">Aplicados</option>
+        </select>
+        <select id="f-country">
+          <option value="">Todos los países</option>
+          <option value="mx">México</option>
+          <option value="us">Estados Unidos</option>
+          <option value="remote">Remoto</option>
+        </select>
+      </div>
+    </div>
+    <ul class="jobs" id="jobs"></ul>
+  </aside>
+
+  <main class="main" id="main">
+    <div class="empty" id="empty">
+      <h2>Elige una vacante</h2>
+      <p>Selecciona un empleo de la lista para ver la publicación, ajustar tu CV y preparar la carta. Usa <kbd>j</kbd> y <kbd>k</kbd> para moverte.</p>
+    </div>
+    <section class="work" id="work" hidden>
+      <header class="work-head">
+        <div class="wh-title">
+          <h2 id="w-title"></h2>
+          <p id="w-sub"></p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="b-cv" title="Generar CV (g)">✨ Generar CV</button>
+          <button class="btn" id="b-cover">✉️ Generar carta</button>
+          <button class="btn" id="b-pdf">📄 Descargar PDF</button>
+          <button class="btn primary" id="b-apply" title="Aplicar (a)">🚀 Aplicar</button>
+          <button class="icon-btn vote" id="b-like" title="Me interesa">👍</button>
+          <button class="icon-btn vote" id="b-pass" title="Descartar">👎</button>
+        </div>
+      </header>
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="li" class="on">Vista LinkedIn</button>
+        <button role="tab" data-tab="cv">CV</button>
+        <button role="tab" data-tab="cover">Carta</button>
+        <span class="save-state" id="save-state"></span>
+      </nav>
+      <div class="pane" id="pane-li"></div>
+      <div class="pane doc-pane" id="pane-cv" hidden>
+        <div class="tpl-bar"><div class="tpls" id="tpls-cv"></div><div class="zoom" data-kind="cv"></div></div>
+        <div class="stage"><iframe id="frame-cv" title="CV"></iframe></div>
+      </div>
+      <div class="pane doc-pane" id="pane-cover" hidden>
+        <div class="tpl-bar"><div class="tpls" id="tpls-cover"></div><div class="zoom" data-kind="cover"></div></div>
+        <div class="stage"><iframe id="frame-cover" title="Carta"></iframe></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toasts" id="toasts"></div>
+<script src="templates/templates.js" onerror="window.STUDIO_TEMPLATES=window.STUDIO_TEMPLATES||[]"></script>
+<script src="studio.js"></script>
+</body>
+</html>
