@@ -24,6 +24,7 @@ import time
 
 import app
 import db
+import latex_cv
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COLA = os.path.join(HERE, 'cola')
@@ -140,6 +141,36 @@ def cv_html(d, pais):
                  f'<p style="margin-top:3px"><b>{t["idiomas"]}:</b> {_e(edu["idiomas"])}</p>')
     return (f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8"><style>{CSS}</style></head>'
             f'<body>{"".join(parts)}</body></html>')
+
+
+def _cv_latex(d, pais, out):
+    lang = d.get('idioma', 'en')
+    t, edu = T[lang], EDU[lang]
+    tel = TEL_MX if pais == 'mx' else TEL_US if pais in ('us', 'ca') else f'{TEL_MX} · {TEL_US}'
+    ubic = d.get('ubicacion') or (CIUDAD['es'] + ' · Disponible para reubicarme' if lang == 'es'
+                                  else CIUDAD['en'] + ' · Open to relocate')
+    header = {'name': NOMBRE, 'headline': d['titular'], 'contact': [EMAIL, tel, LINKEDIN, WEB, ubic]}
+    sections = [
+        (t['perfil'], [('p', d['perfil'])]),
+        (t['comp'], [('kv', d['competencias'])]),
+        (t['exp'], [('entry', x['puesto'], x['fechas'], x['empresa'], x['bullets'])
+                    for x in d['experiencia']]),
+        (t['proy'], [('entry', p['titulo'], '', '', p['bullets']) for p in d['proyectos']]),
+        (t['edu'], [('entry', edu['titulo'], edu['fechas'], edu['escuela'], []),
+                    ('p', f"**{t['cert']}:** " + '; '.join(edu['certs'])),
+                    ('p', f"**{t['idiomas']}:** " + edu['idiomas'])]),
+    ]
+    return latex_cv.generic_pdf(header, sections, out, one_page=True)  # el CV siempre en 1 página
+
+
+def _pdf(html_doc, out, latex_fn):
+    """LaTeX si está disponible; si falla, el render HTML de siempre."""
+    try:
+        if latex_cv.available():
+            return latex_fn(out)
+    except Exception as e:
+        print(f'  [latex] {e} — uso HTML')
+    app.WORKER.call('render_pdf', timeout=120, html_doc=html_doc, out_path=out)
 
 
 def carta_html(texto, lang):
@@ -376,13 +407,14 @@ def _preparar(f, memoria):
     carpeta = os.path.join(OUT, jid)
     os.makedirs(carpeta, exist_ok=True)
     cv_pdf = os.path.join(carpeta, f'CV_{SLUG}.pdf')
-    app.WORKER.call('render_pdf', timeout=120, html_doc=cv_html(d, pais), out_path=cv_pdf)
+    _pdf(cv_html(d, pais), cv_pdf, lambda o: _cv_latex(d, pais, o))
     cover_pdf = None
     if d.get('carta'):
         cover_pdf = os.path.join(carpeta, f'Carta_{SLUG}.pdf' if d.get('idioma') == 'es'
                                  else f'Cover_Letter_{SLUG}.pdf')
-        app.WORKER.call('render_pdf', timeout=120, html_doc=carta_html(d['carta'], d.get('idioma')),
-                        out_path=cover_pdf)
+        _pdf(carta_html(d['carta'], d.get('idioma')), cover_pdf,
+             lambda o: latex_cv.letter_pdf({'name': NOMBRE, 'contact': [EMAIL, LINKEDIN, WEB]},
+                                           time.strftime('%d/%m/%Y'), d['carta'].split('\n\n'), o))
     db.save_application(jid, 'prepared', resume_pdf=cv_pdf, cover_pdf=cover_pdf,
                         cover_text=d.get('carta'))
     try:

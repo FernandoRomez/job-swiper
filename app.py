@@ -22,6 +22,7 @@ import html
 import json
 import os
 import queue
+import random
 import re
 import threading
 import time
@@ -32,6 +33,7 @@ from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import db
+import latex_cv
 import personal
 from mcp_bridge import BRIDGE
 
@@ -104,10 +106,10 @@ def ai_missing_msg():
     return 'Falta la API key de Google Gemini (guárdala en Ajustes).'
 
 
-def mcp_ask(prompt, *, kind='text', label='', history=None):
+def mcp_ask(prompt, *, kind='text', label='', history=None, timeout=None):
     """Encola la petición en el puente MCP y espera a que Claude la responda."""
     try:
-        timeout = float(CONFIG.get('mcp_timeout') or 900)
+        timeout = float(timeout or CONFIG.get('mcp_timeout') or 900)
     except (TypeError, ValueError):
         timeout = 900.0
     return BRIDGE.submit(prompt, kind=kind, label=label, history=history, timeout=timeout)
@@ -116,11 +118,11 @@ def mcp_ask(prompt, *, kind='text', label='', history=None):
 # --------------------------------------------------------------------------- #
 #  Gemini (llamadas REST desde el servidor; la key nunca sale de tu máquina)  #
 # --------------------------------------------------------------------------- #
-def gemini_json(prompt, *, temperature=0.7, max_tokens=8192, model=None, label=''):
+def gemini_json(prompt, *, temperature=0.7, max_tokens=8192, model=None, label='', timeout=None):
     """Pide un JSON a la IA. Según el proveedor activo va a la API de Gemini o
     al puente MCP, donde lo responde Claude desde tu editor."""
     if ai_provider() == 'mcp':
-        return _extract_json(mcp_ask(prompt, kind='json', label=label or 'Petición JSON'))
+        return _extract_json(mcp_ask(prompt, kind='json', label=label or 'Petición JSON', timeout=timeout))
     key = CONFIG.get('gemini_key', '').strip()
     model = (model or CONFIG.get('gemini_model', 'gemini-3-flash')).strip()
     if not key:
@@ -281,9 +283,9 @@ Responde SIEMPRE con JSON válido con esta forma:
 }}
 
 Cómo decidir la acción:
-- Onboarding: si el usuario todavía no ha dicho qué busca y hay un CV, hazle 2-3 preguntas CONCRETAS basadas en su CV (áreas/tecnologías que domina, nivel, ubicación, si se reubica, si debe evitar requisitos como ciudadanía o clearance). action=null.
-- Buscar (ej: "busca datacenter en Raleigh", "ahora lo mismo pero en Alemania", "quiero trabajos de drones, robótica y programación"): action.type="search" con 1-4 queries realistas (título + ubicación que un reclutador usaría). Si dice "los mismos parámetros pero en X", reutiliza los keywords del "último search" cambiando la ubicación. Si pide evitar algo (ej: "que no pidan ciudadanía americana"), añade esos textos a "exclude" (ej: ["u.s. citizen","citizenship required","security clearance"]).
-- Segmentar lo YA guardado (ej: "cuáles hay en Raleigh", "cuáles no piden ciudadanía", "muéstrame los de me gusta"): action.type="filter" con criterios. "exclude"=textos que NO deben aparecer en la descripción.
+- Onboarding: si el usuario todavía no ha dicho qué busca y hay un CV, hazle 2-3 preguntas CONCRETAS basadas en su CV (qué tipo de puesto busca, en qué ciudad o si prefiere remoto, y qué modalidad o tipo de contrato quiere). No asumas ningún país: usa la ubicación de su perfil/CV. action=null.
+- Buscar (ej: "busca ingeniero en Guadalajara", "ahora lo mismo pero en Alemania", "quiero trabajos de drones, robótica y programación"): action.type="search" con 1-4 queries realistas (título + ubicación que un reclutador usaría). Si dice "los mismos parámetros pero en X", reutiliza los keywords del "último search" cambiando la ubicación. Si pide evitar algo (ej: "que no pidan ciudadanía americana"), añade esos textos a "exclude" (ej: ["u.s. citizen","citizenship required","security clearance"]).
+- Segmentar lo YA guardado (ej: "cuáles hay en mi ciudad", "cuáles no piden ciudadanía", "muéstrame los de me gusta"): action.type="filter" con criterios. "exclude"=textos que NO deben aparecer en la descripción.
 - Si el usuario aporta datos de su perfil, añádelos en save_profile además del reply.
 
 Último search del usuario: {json.dumps(last_search, ensure_ascii=False)}
@@ -303,15 +305,15 @@ def mock_agent_plan(q):
     if any(w in ql for w in ['__inicio__']):
         return {'reply': '(demo) ¡Hola! Veo tu CV. Para buscar los mejores empleos, cuéntame: '
                           '¿en qué áreas o tecnologías te quieres enfocar, en qué ubicación, y '
-                          'hay algún requisito que deba evitar (por ejemplo, que no pidan ciudadanía)?',
+                          '¿prefieres algo remoto, híbrido o presencial?',
                 'action': None}
     if any(w in ql for w in ['busca', 'buscar', 'search', 'encuentra', 'drone', 'robot', 'aleman', 'germany', 'programa']):
-        loc = 'Alemania' if ('aleman' in ql or 'germany' in ql) else 'Raleigh, NC'
+        loc = 'Alemania' if ('aleman' in ql or 'germany' in ql) else (CONFIG.get('profile', {}).get('location') or 'Remote')
         return {'reply': f'(demo) Buscando empleos para: "{q}".',
                 'action': {'type': 'search',
                            'queries': [{'keywords': q[:40], 'location': loc}],
                            'exclude': (['u.s. citizen', 'citizenship'] if 'ciudadan' in ql else [])}}
-    if any(w in ql for w in ['cuales', 'cuáles', 'filtra', 'muestra', 'tengo', 'ciudadan', 'raleigh']):
+    if any(w in ql for w in ['cuales', 'cuáles', 'filtra', 'muestra', 'tengo', 'ciudadan']):
         return {'reply': '(demo) Filtro tus empleos guardados.',
                 'action': {'type': 'filter', 'location': '', 'text': '', 'status': '',
                            'exclude': (['citizen', 'citizenship'] if 'ciudadan' in ql else [])}}
@@ -398,7 +400,7 @@ DOC_SCHEMA = """{
       "certifications": ["cert1"],
       "languages": ["Spanish (Native)","English (C1)"]
     },
-    "cv": { "same structure as resume but MORE detailed (all experiences, more bullets, in English)" },
+    "cv": { "same structure as resume, a bit more detailed but still ONE PAGE max (in English)" },
     "cover_letter": {
       "date": "July 11, 2026",
       "recipient": "Hiring Team at <Company>",
@@ -424,7 +426,7 @@ DOC_SCHEMA = """{
       "certifications": ["cert1"],
       "languages": ["Español (nativo)","Inglés (C1)"]
     },
-    "cv": { "igual estructura que resume pero MÁS completo y detallado (todas las experiencias, más viñetas, en español)" },
+    "cv": { "igual estructura que resume, algo más detallado pero máximo UNA PÁGINA (en español)" },
     "cover_letter": {
       "date": "11 de julio de 2026",
       "recipient": "Equipo de contratación de <Empresa>",
@@ -508,13 +510,18 @@ Importante:
 - "resume" y "cv" comparten el mismo "profile" dentro de su respectivo idioma. Parte de datos reales del CV base; aplica la ESTRATEGIA DE HABILIDADES TRANSFERIBLES para cubrir los requisitos de la oferta sin inventar. Deja "" o [] lo que no exista ni tenga análogo.
 - Para el teléfono de contacto ('contact.phone'): si la oferta o empresa es de México (ej. Puebla, CDMX, Monterrey o empresa mexicana), usa obligatoriamente el número de México ({personal.TEL_MX}). Si la oferta es en Estados Unidos / empresa estadounidense, usa el número de EE.UU. ({personal.TEL_US}).
 - El "resume" DEBE caber en UNA sola página: es la versión condensada. Máximo 3-4 experiencias (las más relevantes a la oferta) con 2-3 viñetas CORTAS cada una, resumen de 2-3 líneas y solo las habilidades/certificaciones clave. Sé breve.
-- El "cv" es la versión completa y detallada (sin límite de página).
+- El "cv" TAMBIÉN debe caber en UNA sola página (puede ser algo más detallado que el resume, pero nunca pasar de 1 página).
+- Si hay un CV GENERAL, úsalo como plantilla de partida (estructura, redacción y contacto) y adáptalo a la oferta; el CV BASE sigue siendo la fuente de la verdad.
+- Para el contacto, si el PERFIL trae name/email/phone/location, úsalos.
 
 === PERFIL (respuestas previas) ===
 {json.dumps(profile, ensure_ascii=False)}
 
 === CV BASE (fuente de la verdad) ===
 {base_cv[:6000]}
+
+=== CV GENERAL (plantilla de 1 página ya optimizada) ===
+{json.dumps((CONFIG.get('master_cv') or {}).get('es') or {}, ensure_ascii=False)[:5000] or 'N/D'}
 
 === OFERTA ===
 Puesto: {job.get('title')}
@@ -1244,6 +1251,21 @@ def run_autojob_phase2(task_id, profile, base_cv, is_mock=False):
 # carpeta visible con un PDF por empleo; el modo demo usa una aparte para no
 # tocar jamás los currículums reales del usuario.
 GEN_DIR = os.path.join(HERE, 'resumes_mock' if MOCK else 'resumes')
+
+
+def latex_doc_pdf(docs, kind, lang, dest):
+    """Genera el PDF de un documento (resume|cv|cover_letter) con LaTeX a partir de los
+    datos estructurados. Devuelve None si no aplica (edición manual en HTML o sin LaTeX)."""
+    if not docs or not latex_cv.available():
+        return None
+    if (docs.get('overrides') or {}).get(f'{kind}_{lang}'):
+        return None  # el usuario editó el HTML a mano: se respeta tal cual
+    target = docs.get(lang) or docs.get('en') or docs.get('es') or docs
+    profile = dict(target.get('profile') or {})
+    profile.setdefault('lang', lang)
+    if kind == 'cover_letter':
+        return latex_cv.cover_pdf(profile, target.get('cover_letter') or {}, dest)
+    return latex_cv.resume_pdf(profile, target.get(kind) or {}, dest, one_page=True)  # resume y CV: siempre 1 página
 
 DAILY_LIMIT = 64        # tope de solicitudes que LinkedIn permite por día (24 h)
 QUOTA_WINDOW = 24 * 3600
@@ -2531,7 +2553,8 @@ _scrape_lock = threading.Lock()
 
 
 def run_scrape_all(query='', location='', sources='all'):
-    cmd = [sys.executable, '-u', '-m', 'studio.scrapers.run', '--sources', sources or 'all']
+    cmd = [sys.executable, '-u', '-m', 'studio.scrapers.run', '--sources', sources or 'all',
+           '--db', db.DB_PATH]
     if query:
         cmd += ['--query', query]
     if location:
@@ -2548,6 +2571,277 @@ def run_scrape_all(query='', location='', sources='all'):
     finally:
         SCRAPE['running'] = False
         SCRAPE['finished'] = time.time()
+
+
+# --------------------------------------------------------------------------- #
+#  Onboarding, perfil progresivo y CV general                                  #
+# --------------------------------------------------------------------------- #
+# Preguntas que se hacen poco a poco (una tras cada swipe) para completar lo que
+# no se pudo sacar del CV. Los valores de las opciones coinciden con los chips
+# del panel Perfil, así que todo queda sincronizado.
+PROFILE_QUESTIONS = [
+    {'key': 'relocate', 'q': '¿Estarías dispuesto a reubicarte por un buen empleo?',
+     'options': ['No, solo mi ciudad', 'Sí, a otras ciudades', 'Solo remoto']},
+    {'key': 'modality', 'q': '¿Qué modalidad de trabajo prefieres?',
+     'options': ['Presencial', 'Híbrido', 'Remoto', 'Indiferente']},
+    {'key': 'seniority', 'q': '¿Qué nivel de puesto estás buscando?',
+     'options': ['Entry-level', 'Mid', 'Senior']},
+    {'key': 'english', 'q': '¿Qué nivel de inglés tienes?',
+     'options': ['Básico', 'Intermedio', 'Avanzado', 'Nativo / bilingüe']},
+    {'key': 'availability', 'q': '¿Cuándo podrías empezar a trabajar?',
+     'options': ['De inmediato', 'En 2 semanas', 'En 1 mes o más']},
+    {'key': 'salary', 'q': '¿Cuál es tu expectativa salarial mensual?',
+     'placeholder': 'Monto y moneda, ej. 20,000 al mes'},
+    {'key': 'travel', 'q': '¿Tienes disponibilidad para viajar?',
+     'options': ['Sí', 'Ocasionalmente', 'No']},
+    {'key': 'authorization', 'q': '¿En qué países puedes trabajar legalmente?',
+     'placeholder': 'Ej. solo en mi país'},
+    {'key': 'experience', 'q': '¿Cuántos años de experiencia profesional tienes?',
+     'placeholder': 'Ej. 3'},
+    {'key': 'education', 'q': '¿Cuál es tu nivel educativo?',
+     'options': ['Sin título', 'Carrera técnica', 'Licenciatura', 'Posgrado']},
+    {'key': 'field', 'q': '¿En qué área profesional te quieres desarrollar?',
+     'placeholder': 'Ej. Ventas, diseño, ingeniería, salud…'},
+    {'key': 'contract', 'q': '¿Qué tipo de contrato buscas?',
+     'options': ['Tiempo completo', 'Medio tiempo', 'Por proyecto / freelance', 'Prácticas', 'Me da igual']},
+    {'key': 'schedule', 'q': '¿Qué horario te funciona mejor?',
+     'options': ['Matutino', 'Vespertino', 'Mixto / flexible', 'Turnos rotativos', 'Cualquiera']},
+    {'key': 'company_size', 'q': '¿En qué tipo de empresa te gustaría trabajar?',
+     'options': ['Startup', 'Empresa mediana', 'Gran corporativo', 'Gobierno / ONG', 'Me da igual']},
+    {'key': 'priority', 'q': '¿Qué es lo que más te importa en un nuevo empleo?',
+     'options': ['Sueldo', 'Crecimiento', 'Estabilidad', 'Ambiente de trabajo', 'Flexibilidad']},
+    {'key': 'commute', 'q': '¿Cuánto tiempo estás dispuesto a trasladarte al trabajo?',
+     'options': ['Menos de 30 min', 'Hasta 1 hora', 'Más de 1 hora', 'Solo remoto']},
+    {'key': 'languages_extra', 'q': '¿Hablas otros idiomas además de español e inglés?',
+     'placeholder': 'Ej. Francés intermedio (o «ninguno»)'},
+    {'key': 'license', 'q': '¿Tienes licencia de conducir o vehículo propio?',
+     'options': ['Licencia y auto', 'Solo licencia', 'No']},
+    {'key': 'avoid', 'q': '¿Hay algo que prefieras evitar en un empleo?',
+     'placeholder': 'Ej. turnos nocturnos, ventas por comisión… (o «nada»)'},
+]
+
+
+def missing_questions(profile):
+    profile = profile or {}
+    skipped = set(profile.get('_skipped') or [])
+    miss = [q for q in PROFILE_QUESTIONS
+            if not str(profile.get(q['key']) or '').strip() and q['key'] not in skipped]
+    random.shuffle(miss)  # orden aleatorio: cada vez una pregunta distinta
+    return miss
+
+
+def extract_profile_from_cv(base_cv, basics):
+    """Lee el CV y saca todo lo que pueda del perfil + las mejores búsquedas."""
+    keys = ', '.join(q['key'] for q in PROFILE_QUESTIONS)
+    opts = '\n'.join(f"- {q['key']}: " + (' | '.join(q['options']) if q.get('options') else 'texto libre')
+                     for q in PROFILE_QUESTIONS)
+    prompt = f"""Analiza el CV de un candidato y extrae su perfil laboral.
+
+Devuelve SOLO JSON válido:
+{{"profile": {{"location": "ciudad, país", {', '.join(f'"{k}": ""' for k in keys.split(', '))}}},
+  "queries": ["3 a 5 títulos de puesto realistas para buscar empleo, en el idioma del mercado del candidato"]}}
+
+Reglas:
+- Rellena SOLO lo que el CV diga o permita deducir con seguridad; deja "" lo demás (se le preguntará luego).
+- Para los campos con opciones usa EXACTAMENTE uno de estos valores:
+{opts}
+- Las búsquedas deben encajar con su experiencia y con el puesto que dice buscar: "{basics.get('target') or 'no indicado'}".
+
+=== DATOS QUE DIO EL CANDIDATO ===
+{json.dumps(basics, ensure_ascii=False)}
+
+=== CV ===
+{base_cv[:8000]}"""
+    return gemini_json(prompt, temperature=0.3, max_tokens=2000, label='Analizar CV (bienvenida)',
+                       timeout=120)
+
+
+def mock_extract_profile(base_cv, basics):
+    low = base_cv.lower()
+    yrs = re.search(r'(\d+)\+?\s*(años|years)', low)
+    return {'profile': {
+        'experience': yrs.group(1) if yrs else '',
+        'education': 'Licenciatura' if ('ingenier' in low or 'licenciatura' in low) else '',
+        'english': 'Avanzado' if ('inglés' in low or 'english' in low) else '',
+    }, 'queries': [basics.get('target') or 'Data Center Technician']}
+
+
+MASTER_SCHEMA = """{
+  "en": {"profile": {"name":"","headline":"","lang":"en","contact":{"email":"","phone":"","location":"","linkedin":"","website":""}},
+         "resume": {"summary":"","experience":[{"title":"","company":"","location":"","start":"","end":"","bullets":[""]}],
+                    "education":[{"degree":"","school":"","location":"","start":"","end":"","detail":""}],
+                    "skills":[""],"certifications":[""],"languages":[""]}},
+  "es": { "misma estructura, todo en español" }
+}"""
+
+
+def generate_master_cv(profile, base_cv):
+    """CV general de UNA página: la base pulida de la que parten todos los CVs adaptados."""
+    prompt = f"""Eres un redactor experto de CVs optimizados para ATS. Crea el CV GENERAL del candidato:
+la mejor versión posible de su perfil, sin enfocarlo a una oferta concreta, pero orientado al
+área y nivel que busca. Servirá como base para adaptar después un CV a cada oferta.
+
+{ATS_RULES}
+
+REGLA CRÍTICA: el CV debe caber en UNA SOLA PÁGINA tamaño carta. Resumen de 2-3 líneas,
+máximo 3-4 experiencias (las más relevantes) con 2-4 viñetas cortas y cuantificadas,
+habilidades agrupadas y concisas. Prioriza y recorta; no rellenes.
+
+Usa los datos de contacto del perfil (name, email, phone, location) tal cual.
+Genera dos versiones (en inglés "en" y en español "es"), cada una 100% en su idioma.
+
+Devuelve SOLO JSON válido con esta estructura:
+{MASTER_SCHEMA}
+
+=== PERFIL ===
+{json.dumps({k: v for k, v in (profile or {}).items() if not k.startswith('_')}, ensure_ascii=False)}
+
+=== CV ORIGINAL (fuente de la verdad) ===
+{base_cv[:8000]}"""
+    return gemini_json(prompt, temperature=0.4, max_tokens=8192, label='CV general (1 página)')
+
+
+def mock_master_cv(profile, base_cv):
+    lines = [l.strip() for l in base_cv.splitlines() if l.strip()]
+    out = {}
+    for lang in ('en', 'es'):
+        out[lang] = {
+            'profile': {'name': profile.get('name') or 'Candidato', 'lang': lang,
+                        'headline': profile.get('field') or ('Professional' if lang == 'en' else 'Profesional'),
+                        'contact': {'email': profile.get('email', ''), 'phone': profile.get('phone', ''),
+                                    'location': profile.get('location', ''), 'linkedin': '', 'website': ''}},
+            'resume': {'summary': ' '.join(lines[:2])[:300], 'experience': [], 'education': [],
+                       'skills': [], 'certifications': [],
+                       'languages': [profile['english']] if profile.get('english') else []},
+        }
+    return out
+
+
+def _tokens(text):
+    stop = {'de', 'la', 'el', 'en', 'y', 'a', 'the', 'and', 'of', 'for', 'con', 'para', 'jr', 'sr'}
+    return {w for w in re.findall(r'[a-záéíóúñü0-9+#]{2,}', str(text or '').lower()) if w not in stop}
+
+
+def rank_jobs(jobs):
+    """Primero los empleos que más se parecen a lo que busca la persona."""
+    prof = CONFIG.get('profile', {})
+    want = _tokens(' '.join(CONFIG.get('search_terms') or []) + ' ' + str(prof.get('field') or ''))
+    if not want:
+        return jobs
+    loc = _tokens(prof.get('location'))
+
+    def score(j):
+        t = _tokens(j.get('title'))
+        sc = 3 * len(t & want) + 0.5 * len(_tokens((j.get('description') or '')[:1500]) & want)
+        if loc and loc & _tokens(j.get('location')):
+            sc += 1
+        return sc
+    return sorted(jobs, key=score, reverse=True)
+
+
+MASTER = {'running': False, 'error': None}
+
+
+def run_master_cv():
+    MASTER.update(running=True, error=None)
+    try:
+        profile, base_cv = CONFIG.get('profile', {}), CONFIG.get('base_cv', '')
+        if MOCK:
+            time.sleep(2)
+            cv = mock_master_cv(profile, base_cv)
+        else:
+            cv = generate_master_cv(profile, base_cv)
+        if not isinstance(cv, dict) or not (cv.get('en') or cv.get('es')):
+            raise ValueError('La IA no devolvió un CV válido.')
+        CONFIG['master_cv'] = cv
+        CONFIG['master_cv_at'] = time.time()
+        CONFIG['master_cv_stale'] = False
+        save_config(CONFIG)
+    except Exception as e:
+        MASTER['error'] = str(e)
+    finally:
+        MASTER['running'] = False
+
+
+ONBOARD = {'running': False, 'done': False, 'error': None, 'steps': [], 'started': 0}
+ONBOARD_STEPS = [
+    ('analyze', 'Leyendo tu CV'),
+    ('search', 'Eligiendo los puestos que mejor te quedan'),
+    ('scrape', 'Buscando empleos en todas las plataformas'),
+    ('master', 'Creando tu CV general (1 página)'),
+]
+
+
+def _step(key, state, detail=''):
+    for s in ONBOARD['steps']:
+        if s['key'] == key:
+            s['state'] = state
+            if detail:
+                s['detail'] = detail
+
+
+def run_onboarding(basics):
+    try:
+        base_cv = CONFIG.get('base_cv', '')
+        _step('analyze', 'running')
+        try:
+            info = (mock_extract_profile(base_cv, basics) if MOCK
+                    else extract_profile_from_cv(base_cv, basics)) or {}
+        except Exception as e:
+            info = {'profile': {}, 'queries': []}
+            _step('analyze', 'running', f'No se pudo analizar con IA ({e}); seguimos.')
+        prof = CONFIG.setdefault('profile', {})
+        for k, v in (info.get('profile') or {}).items():
+            if str(v or '').strip() and not str(prof.get(k) or '').strip():
+                prof[k] = v
+        save_config(CONFIG)
+        _step('analyze', 'done')
+
+        _step('search', 'running')
+        queries = [q for q in (info.get('queries') or []) if isinstance(q, str) and q.strip()]
+        if basics.get('target'):
+            queries = [basics['target']] + [q for q in queries if q.lower() != basics['target'].lower()]
+        queries = queries[:3]
+        CONFIG['search_terms'] = queries
+        save_config(CONFIG)
+        _step('search', 'done', ', '.join(queries))
+
+        # El CV general se genera en paralelo mientras se scrapea.
+        master_t = threading.Thread(target=run_master_cv, daemon=True)
+        _step('master', 'running')
+        master_t.start()
+
+        _step('scrape', 'running')
+        location = prof.get('location') or basics.get('location') or 'Mexico'
+        # Las bolsas remotas (en inglés) solo si la persona busca remoto: si no, traen ruido.
+        wants_remote = any('remot' in str(x).lower()
+                           for x in (location, basics.get('target'), prof.get('relocate'), prof.get('modality')))
+        from studio.scrapers import SOURCES as _ALL
+        from studio.scrapers.run import REMOTE as _REMOTE
+        sources = ','.join(_ALL if wants_remote else [x for x in _ALL if x not in _REMOTE])
+        if MOCK:
+            for j in MOCK_JOBS:
+                db.upsert_jobs([dict(j)])
+                time.sleep(1.2)
+        else:
+            for q in queries:
+                with _scrape_lock:
+                    if SCRAPE['running']:
+                        continue
+                    SCRAPE.update(running=True, log=[], started=time.time(), finished=None)
+                _step('scrape', 'running', f'Buscando «{q}» en {location}…')
+                run_scrape_all(q, location, sources)
+        _step('scrape', 'done')
+
+        master_t.join()
+        _step('master', 'error' if MASTER['error'] else 'done', MASTER['error'] or '')
+        CONFIG['onboarded'] = True
+        save_config(CONFIG)
+    except Exception as e:
+        ONBOARD['error'] = str(e)
+    finally:
+        ONBOARD['running'] = False
+        ONBOARD['done'] = True
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -2588,6 +2882,19 @@ class Handler(BaseHTTPRequestHandler):
             })
         if path == '/api/scrape-all/status':
             return self._send(200, SCRAPE)
+        if path == '/api/onboarding/status':
+            st = dict(ONBOARD)
+            st['onboarded'] = bool(CONFIG.get('onboarded') or CONFIG.get('base_cv', '').strip())
+            st['jobs_new'] = len(db.get_jobs('new'))
+            return self._send(200, st)
+        if path == '/api/profile/question':
+            miss = missing_questions(CONFIG.get('profile', {}))
+            return self._send(200, {'question': miss[0] if miss else None, 'remaining': len(miss)})
+        if path == '/api/master-cv':
+            return self._send(200, {'master_cv': CONFIG.get('master_cv'),
+                                    'stale': bool(CONFIG.get('master_cv_stale')),
+                                    'updated_at': CONFIG.get('master_cv_at'),
+                                    'running': MASTER['running'], 'error': MASTER['error']})
         if path == '/api/linkedin/status':
             if MOCK:
                 return self._send(200, {'launched': True, 'logged_in': True, 'mock': True})
@@ -2596,7 +2903,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._send(200, {'launched': False, 'logged_in': False, 'error': str(e)})
         if path == '/api/deck':
-            return self._send(200, {'jobs': db.get_jobs('new')})
+            return self._send(200, {'jobs': rank_jobs(db.get_jobs('new'))})
         if path == '/api/jobs':
             jobs = db.get_jobs()
             have = db.doc_job_ids()
@@ -2633,6 +2940,29 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, res or {})
         if path == '/api/applications':
             return self._send(200, {'applications': db.get_applications()})
+        if path == '/api/doc/pdf':
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            jid = q.get('job_id', [''])[0]
+            kind = q.get('kind', ['resume'])[0]
+            lang = q.get('lang', ['en'])[0]
+            if kind not in ('resume', 'cv', 'cover_letter') or lang not in ('en', 'es'):
+                return self._send(400, {'error': 'Parámetros inválidos.'})
+            docs = db.get_documents(jid) if jid else None
+            if not docs:
+                return self._send(404, {'error': 'No hay documentos para este empleo.'})
+            import tempfile
+            with tempfile.TemporaryDirectory() as tmp:
+                out = os.path.join(tmp, 'doc.pdf')
+                try:
+                    if not latex_doc_pdf(docs, kind, lang, out):
+                        return self._send(409, {'error': 'Documento editado a mano o LaTeX no disponible.'})
+                except Exception as e:
+                    return self._send(500, {'error': str(e)[-800:]})
+                with open(out, 'rb') as f:
+                    pdf = f.read()
+            fname = re.sub(r'[^\w.-]+', '_', q.get('name', ['documento'])[0]) + '.pdf'
+            return self._send(200, pdf, 'application/pdf',
+                              {'Content-Disposition': f'inline; filename="{fname}"'})
         if path == '/api/apply/quota':
             return self._send(200, apply_quota())
         if path == '/api/mcp/status':
@@ -2661,6 +2991,80 @@ class Handler(BaseHTTPRequestHandler):
                     if k in data:
                         CONFIG[k] = data[k]
                 save_config(CONFIG)
+                return self._send(200, {'ok': True})
+
+            if path == '/api/onboarding':
+                data = self._read_json()
+                cv = (data.get('base_cv') or '').strip()
+                name = (data.get('name') or '').strip()
+                if not name or len(cv) < 40:
+                    return self._send(400, {'error': 'Necesitamos tu nombre y tu CV (pégalo o súbelo).'})
+                if not (data.get('target') or '').strip():
+                    return self._send(400, {'error': 'Dinos qué puesto buscas para traerte empleos que sí te sirvan.'})
+                if ONBOARD['running']:
+                    return self._send(409, {'error': 'Ya estamos configurando tu perfil.'})
+                if not ai_ready():
+                    return self._send(400, {'error': ai_missing_msg()})
+                basics = {k: (data.get(k) or '').strip()
+                          for k in ('name', 'email', 'phone', 'location', 'target')}
+                prof = CONFIG.setdefault('profile', {})
+                for k in ('name', 'email', 'phone', 'location'):
+                    if basics[k]:
+                        prof[k] = basics[k]
+                CONFIG['base_cv'] = cv
+                CONFIG['onboarded'] = True  # ya vio la bienvenida: no se la volvemos a mostrar
+                save_config(CONFIG)
+                ONBOARD.update(running=True, done=False, error=None, started=time.time(),
+                               steps=[{'key': k, 'label': l, 'state': 'pending', 'detail': ''}
+                                      for k, l in ONBOARD_STEPS])
+                threading.Thread(target=run_onboarding, args=(basics,), daemon=True).start()
+                return self._send(200, {'ok': True})
+
+            if path == '/api/reset':
+                data = self._read_json()
+                if ONBOARD['running'] or MASTER['running']:
+                    return self._send(409, {'error': 'Espera a que termine la configuración en curso.'})
+                for k in ('base_cv', 'profile', 'master_cv', 'master_cv_at', 'master_cv_stale',
+                          'onboarded', 'search_terms', 'last_search'):
+                    CONFIG.pop(k, None)
+                CONFIG['profile'] = {}
+                save_config(CONFIG)
+                db.clear_chat()
+                removed = db.delete_jobs_by_status('new') if data.get('jobs') else 0
+                ONBOARD.update(running=False, done=False, error=None, steps=[], started=0)
+                return self._send(200, {'ok': True, 'removed_jobs': removed})
+
+            if path == '/api/profile/answer':
+                data = self._read_json()
+                key = data.get('key')
+                if key not in {q['key'] for q in PROFILE_QUESTIONS}:
+                    return self._send(400, {'error': 'Pregunta desconocida.'})
+                prof = CONFIG.setdefault('profile', {})
+                if data.get('skip'):
+                    prof['_skipped'] = sorted(set(prof.get('_skipped') or []) | {key})
+                else:
+                    val = str(data.get('value') or '').strip()
+                    if not val:
+                        return self._send(400, {'error': 'Respuesta vacía.'})
+                    prof[key] = val
+                    CONFIG['master_cv_stale'] = True
+                save_config(CONFIG)
+                miss = missing_questions(prof)
+                # Cuando ya respondió todo, el CV general se rehace con la info nueva.
+                if not miss and CONFIG.get('master_cv_stale') and not MASTER['running'] \
+                        and CONFIG.get('base_cv') and ai_ready():
+                    MASTER['running'] = True
+                    threading.Thread(target=run_master_cv, daemon=True).start()
+                return self._send(200, {'ok': True, 'remaining': len(miss)})
+
+            if path == '/api/master-cv/regenerate':
+                if not CONFIG.get('base_cv', '').strip():
+                    return self._send(400, {'error': 'Falta tu CV base.'})
+                if not ai_ready():
+                    return self._send(400, {'error': ai_missing_msg()})
+                if not MASTER['running']:
+                    MASTER['running'] = True
+                    threading.Thread(target=run_master_cv, daemon=True).start()
                 return self._send(200, {'ok': True})
 
             if path == '/api/autojob/start':
@@ -2935,7 +3339,16 @@ class Handler(BaseHTTPRequestHandler):
                             p = os.path.join(GEN_DIR, f'{base}_{str(jid)[-5:]}.{ext}')
                     return p
 
-                def _write(html_doc, dest):
+                lang = data.get('lang') or 'en'
+                docs = db.get_documents(jid)
+
+                def _write(html_doc, dest, kind=None):
+                    if not MOCK and kind:
+                        try:
+                            if latex_doc_pdf(docs, kind, lang, dest):
+                                return
+                        except Exception as e:
+                            print(f'[latex] {kind}: {e} — uso HTML')
                     if MOCK:
                         with open(dest, 'w', encoding='utf-8') as f:
                             f.write(html_doc)
@@ -2943,12 +3356,12 @@ class Handler(BaseHTTPRequestHandler):
                         WORKER.call('render_pdf', timeout=90, html_doc=html_doc, out_path=dest)
 
                 resume_out = _dest('resume')
-                _write(resume_html, resume_out)
+                _write(resume_html, resume_out, 'resume')
 
                 cover_out = None
                 if cover_html.strip():
                     cover_out = _dest('cover')
-                    _write(cover_html, cover_out)
+                    _write(cover_html, cover_out, 'cover_letter')
 
                 db.save_application(jid, 'prepared', resume_pdf=resume_out,
                                     cover_pdf=cover_out, cover_text=cover_text or None)

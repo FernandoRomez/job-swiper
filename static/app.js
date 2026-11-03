@@ -1,7 +1,7 @@
 'use strict';
 
 /* ===================== estado (en memoria; la BD es la fuente de verdad) ===================== */
-const state = { queue: [], matches: [], hlCache: {} };
+const state = { queue: [], matches: [], hlCache: {}, history: [] };
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -32,6 +32,7 @@ $$('#nav button').forEach(b => b.addEventListener('click', () => {
   if (b.dataset.panel === 'chat') loadChat();
   if (b.dataset.panel === 'datos') loadJobsTable();
   if (b.dataset.panel === 'aplicar') loadApplications();
+  if (b.dataset.panel === 'perfil') loadMasterCv();
 }));
 function goPanel(name) { $(`#nav button[data-panel="${name}"]`).click(); }
 
@@ -58,6 +59,7 @@ async function loadConfig() {
     if (cfg.mcp_timeout) $('#mcp-timeout').value = cfg.mcp_timeout;
     applyProviderUI();
     const p = cfg.profile || {};
+    state.profile = p;
     $('#p-location').value = p.location || '';
     $('#p-experience').value = p.experience || '';
     $('#p-field').value = p.field || '';
@@ -73,6 +75,7 @@ async function loadConfig() {
 
 function collectProfile() {
   return {
+    ...(state.profile || {}),  // conserva nombre, email, inglés, etc. (de la bienvenida / preguntas)
     location: $('#p-location').value.trim(),
     experience: $('#p-experience').value.trim(),
     field: $('#p-field').value.trim(),
@@ -163,6 +166,7 @@ async function refreshLinkedIn() {
     if (s.logged_in) { pill.className = 'pill ok'; pill.innerHTML = '<span class="led"></span> Sesión activa' + (s.mock ? ' (demo)' : ''); }
     else if (s.launched) { pill.className = 'pill'; pill.innerHTML = '<span class="led"></span> Navegador abierto — inicia sesión'; }
     else { pill.className = 'pill'; pill.innerHTML = '<span class="led"></span> Sin conectar'; }
+    $('#li-pill-mini').className = 'pill' + (s.logged_in ? ' ok' : '');
   } catch (e) {}
 }
 $('#btn-connect').addEventListener('click', async () => {
@@ -299,7 +303,10 @@ $('#btn-search').addEventListener('click', async () => {
   } catch (e) { st.textContent = '❌ ' + e.message; st.className = 'status err'; }
   finally { $('#btn-search').disabled = false; }
 });
-function goPanelToDeck() { $('#deck').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+function goPanelToDeck() {
+  if (!$('#search-drawer').hidden) $('#btn-drawer').click();  // al encontrar empleos, cerramos el cajón
+  $('#deck').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 
 /* ===================== deck / swipe ===================== */
 const deck = $('#deck');
@@ -307,6 +314,8 @@ async function reloadDeck() {
   try { const { jobs } = await api('/api/deck'); state.queue = jobs || []; renderDeck(); } catch (e) {}
 }
 function renderDeck() {
+  $('#deck-count').textContent = state.queue.length;
+  $('#btn-undo').disabled = !state.history.length;
   deck.querySelectorAll('.jobcard').forEach(c => c.remove());
   $('#deck-empty').style.display = state.queue.length ? 'none' : 'flex';
   const top = state.queue.slice(0, 3).reverse();
@@ -456,6 +465,8 @@ function swipe(job, liked, el) {
     el.style.opacity = '0';
   }
   state.queue = state.queue.filter(j => j.id !== job.id);
+  state.history.push({ job, liked });
+  if (state.history.length > 30) state.history.shift();
   jpost('/api/swipe', { job_id: job.id, liked }).catch(() => {});
   if (liked) {
     const match = { id: job.id, job, docs: null, status: 'generating', error: '' };
@@ -465,6 +476,7 @@ function swipe(job, liked, el) {
     generateDocs(match);
   }
   setTimeout(renderDeck, 260);
+  maybeAskQuestion();
 }
 
 $('#btn-like').addEventListener('click', () => { if (state.queue[0]) swipe(state.queue[0], true, deck.querySelector('.jobcard:last-of-type')); });
@@ -474,6 +486,29 @@ document.addEventListener('keydown', e => {
   if (e.target.matches('input, textarea, select')) return;
   if (e.key === 'ArrowRight') $('#btn-like').click();
   if (e.key === 'ArrowLeft') $('#btn-nope').click();
+  if (e.key === 'z' || e.key === 'Z' || e.key === 'Backspace') undoSwipe();
+});
+
+/* ↶ regresar: devuelve la última tarjeta al mazo y la deja como "nueva" */
+async function undoSwipe() {
+  const last = state.history.pop();
+  if (!last) return;
+  const { job, liked } = last;
+  state.queue = [job, ...state.queue.filter(j => j.id !== job.id)];
+  if (liked) { state.matches = state.matches.filter(m => m.id !== job.id); renderMatches(); }
+  $('#q-card').hidden = true;
+  renderDeck();
+  const top = deck.querySelector('.jobcard:last-of-type');
+  if (top) { top.classList.add('undo-in'); }
+  try { await jpost('/api/job/status', { job_id: job.id, status: 'new' }); }
+  catch (e) { toast('❌ ' + e.message); }
+  toast(`↶ De vuelta: ${esc(job.title)}`, 1800);
+}
+$('#btn-undo').addEventListener('click', undoSwipe);
+$('#btn-drawer').addEventListener('click', () => {
+  const d = $('#search-drawer'); d.hidden = !d.hidden;
+  $('#btn-drawer').classList.toggle('open', !d.hidden);
+  $('#btn-drawer').textContent = d.hidden ? '🔍 Buscar más' : '✕ Cerrar búsqueda';
 });
 
 function checkDocPages(kind, docs, lang = 'en') {
@@ -519,28 +554,29 @@ async function generateDocs(match) {
   try {
     const docs = await jpost('/api/generate', { job_id: match.job.id });
     
-    // Check if the resume fits on a single page for both languages
-    for (const lang of ['en', 'es']) {
-      let check = await checkDocPages('resume', docs, lang);
+    // Resume y CV deben caber en UNA página, en ambos idiomas
+    for (const kind of ['resume', 'cv']) for (const lang of ['en', 'es']) {
+      if (!(docs[lang] || docs)[kind]) continue;
+      let check = await checkDocPages(kind, docs, lang);
       let attempts = 0;
       const maxAttempts = 3;
       while (check.isMoreThanOnePage && attempts < maxAttempts) {
         attempts++;
-        toast(`📏 El Resume (${lang.toUpperCase()}) supera 1 página (${Math.round(check.height)}px > ${Math.round(check.avail)}px). Condensando con IA (Intento ${attempts}/${maxAttempts})...`);
+        toast(`📏 El ${kind === 'cv' ? 'CV' : 'Resume'} (${lang.toUpperCase()}) supera 1 página (${Math.round(check.height)}px > ${Math.round(check.avail)}px). Condensando con IA (Intento ${attempts}/${maxAttempts})...`);
         const res = await jpost('/api/refine', {
           job_id: match.job.id,
-          doc_type: 'resume',
+          doc_type: kind,
           lang: lang,
-          instruction: 'El resume supera 1 página. Por favor, reduce y condensa el texto de las experiencias (acorta las viñetas, simplifica el resumen profesional) para que quepa en una sola página. IMPORTANTE: Devuelve el JSON completo y válido, con todos los campos rellenados. NO uses comentarios como "// ...", puntos suspensivos ni omitas datos.'
+          instruction: 'El documento supera 1 página. Por favor, reduce y condensa el texto de las experiencias (acorta las viñetas, simplifica el resumen profesional) para que quepa en una sola página. IMPORTANTE: Devuelve el JSON completo y válido, con todos los campos rellenados. NO uses comentarios como "// ...", puntos suspensivos ni omitas datos.'
         });
         if (docs[lang]) {
-          docs[lang].resume = res.doc;
+          docs[lang][kind] = res.doc;
           if (res.profile) docs[lang].profile = res.profile;
         } else {
-          docs.resume = res.doc;
+          docs[kind] = res.doc;
           if (res.profile) docs.profile = res.profile;
         }
-        check = await checkDocPages('resume', docs, lang);
+        check = await checkDocPages(kind, docs, lang);
       }
     }
     
@@ -685,7 +721,14 @@ $('#matches-list').addEventListener('click', async e => {
       break;
     case 'pdf': {
       const label = (DOC_TABS.find(t => t[0] === kind) || [,''])[1];
-      downloadDocPDF(kind, m.docs, `${label}_${lang.toUpperCase()}_${(m.job.company||'').replace(/\W+/g,'_')}`, lang);
+      const fname = `${label}_${lang.toUpperCase()}_${(m.job.company||'').replace(/\W+/g,'_')}`;
+      const ov = m.docs && m.docs.overrides && m.docs.overrides[`${kind}_${lang}`];
+      if (!ov) {
+        // PDF generado con LaTeX en el servidor
+        window.open(`/api/doc/pdf?job_id=${encodeURIComponent(m.id)}&kind=${kind}&lang=${lang}&name=${encodeURIComponent(fname)}`, '_blank');
+        break;
+      }
+      downloadDocPDF(kind, m.docs, fname, lang);
       toast('🖨 En el diálogo elige "Guardar como PDF".');
       break;
     }
@@ -746,27 +789,27 @@ $('#matches-list').addEventListener('click', async e => {
         if (m.docs.overrides) delete m.docs.overrides[`${kind}_${lang}`];
         input.value = '';
 
-        if (kind === 'resume') {
-          let check = await checkDocPages('resume', m.docs, lang);
+        if (kind === 'resume' || kind === 'cv') {
+          let check = await checkDocPages(kind, m.docs, lang);
           let attempts = 0;
           const maxAttempts = 2;
           while (check.isMoreThanOnePage && attempts < maxAttempts) {
             attempts++;
-            toast(`📏 El Resume (${lang.toUpperCase()}) supera 1 página (${Math.round(check.height)}px > ${Math.round(check.avail)}px). Condensando con IA (Intento ${attempts}/${maxAttempts})...`);
+            toast(`📏 El ${kind === 'cv' ? 'CV' : 'Resume'} (${lang.toUpperCase()}) supera 1 página (${Math.round(check.height)}px > ${Math.round(check.avail)}px). Condensando con IA (Intento ${attempts}/${maxAttempts})...`);
             const res = await jpost('/api/refine', {
               job_id: m.id,
-              doc_type: 'resume',
+              doc_type: kind,
               lang: lang,
-              instruction: 'El resume supera 1 página. Por favor, reduce y condensa el texto de las experiencias (acorta las viñetas, simplifica el resumen profesional) para que quepa en una sola página. IMPORTANTE: Devuelve el JSON completo y válido, con todos los campos rellenados. NO uses comentarios como "// ...", puntos suspensivos ni omitas datos.'
+              instruction: 'El documento supera 1 página. Por favor, reduce y condensa el texto de las experiencias (acorta las viñetas, simplifica el resumen profesional) para que quepa en una sola página. IMPORTANTE: Devuelve el JSON completo y válido, con todos los campos rellenados. NO uses comentarios como "// ...", puntos suspensivos ni omitas datos.'
             });
             if (m.docs.en && m.docs.es) {
-              m.docs[lang].resume = res.doc;
+              m.docs[lang][kind] = res.doc;
               if (res.profile) m.docs[lang].profile = res.profile;
             } else {
-              m.docs.resume = res.doc;
+              m.docs[kind] = res.doc;
               if (res.profile) m.docs.profile = res.profile;
             }
-            check = await checkDocPages('resume', m.docs, lang);
+            check = await checkDocPages(kind, m.docs, lang);
           }
         }
 
@@ -979,7 +1022,7 @@ async function startApply() {
     const coverText = coverLetterText(m.docs, lang);
     try {
       await jpost('/api/apply/prepare', {
-        job_id: m.id, resume_html: resumeHtml,
+        job_id: m.id, lang, resume_html: resumeHtml,
         cover_html: coverHtml, cover_text: coverText,
       });
       jobIds.push(m.id);
@@ -1189,8 +1232,8 @@ function renderChat(messages) {
   const box = $('#chat-messages');
   if (!messages.length) {
     box.innerHTML = `<div class="chat-empty">🤖 Soy tu asistente de búsqueda de empleo.<br>
-      Dime qué buscas y yo lo busco en LinkedIn. Ej: <i>"busca ingeniero de drones en Alemania"</i>,
-      <i>"lo mismo pero que no pidan ciudadanía"</i>, <i>"¿cuáles guardados hay en Raleigh?"</i></div>`;
+      Dime qué buscas y yo lo busco en LinkedIn. Ej: <i>"busca empleos de mi área en mi ciudad"</i>,
+      <i>"lo mismo pero remoto"</i>, <i>"¿cuáles guardados me recomiendas?"</i></div>`;
     return;
   }
   box.innerHTML = messages.map(m =>
@@ -1668,6 +1711,7 @@ jobPop.addEventListener('click', async e => {
 /* ===================== init ===================== */
 (async () => {
   await loadConfig();
+  checkOnboarding();
   refreshLinkedIn();
   setInterval(refreshLinkedIn, 8000);
   reloadDeck();
@@ -1710,3 +1754,231 @@ jobPop.addEventListener('click', async e => {
   });
   api('/api/scrape-all/status').then(s => s.running && poll()).catch(() => {});
 })();
+
+
+/* ===================== bienvenida (onboarding) ===================== */
+const onb = { step: 0, seen: new Set(), timer: null };
+
+function onbShow(step) {
+  onb.step = step;
+  $$('#onb .onb-step').forEach(el => { el.hidden = +el.dataset.step !== step; });
+  $$('#onb .onb-dots i').forEach((d, i) => d.classList.toggle('on', i <= step));
+  const first = $(`#onb .onb-step[data-step="${step}"] input`);
+  if (first) setTimeout(() => first.focus(), 50);
+}
+
+async function checkOnboarding() {
+  try {
+    const st = await api('/api/onboarding/status');
+    let seen = false;
+    try { seen = localStorage.getItem('jobswiper_onb_seen') === '1'; } catch (e) {}
+    if (!st.onboarded) { $('#onb').hidden = false; onbShow(0); }
+    // Si ya pulsó «Empezar», la búsqueda sigue en segundo plano sin volver a taparle la app.
+    else if (st.running && !seen) { $('#onb').hidden = false; onbShow(3); onbPoll(); }
+  } catch (e) {}
+}
+
+$$('#onb .onb-next').forEach(b => b.addEventListener('click', () => {
+  if (onb.step === 1 && !$('#o-name').value.trim()) { $('#o-name').focus(); $('#o-name').style.borderColor = 'var(--nope)'; return; }
+  onbShow(onb.step + 1);
+}));
+$$('#onb .onb-back').forEach(b => b.addEventListener('click', () => onbShow(Math.max(0, onb.step - 1))));
+$('#onb').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT' && onb.step === 1) $('#onb .onb-step[data-step="1"] .onb-next').click();
+});
+
+// --- leer el CV desde archivo (PDF con pdf.js, o texto plano) ---
+async function loadPdfJs() {
+  if (window.pdfjsLib) return window.pdfjsLib;
+  await new Promise((ok, fail) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    sc.onload = ok; sc.onerror = () => fail(new Error('No se pudo cargar el lector de PDF.'));
+    document.head.appendChild(sc);
+  });
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  return window.pdfjsLib;
+}
+async function readCvFile(file) {
+  const drop = $('#o-drop'), txt = $('#o-drop-text');
+  txt.textContent = '⏳ Leyendo ' + file.name + '…';
+  try {
+    let text = '';
+    if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') {
+      const pdfjs = await loadPdfJs();
+      const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const c = await page.getTextContent();
+        let line = '', lastY = null;
+        for (const it of c.items) {
+          const y = it.transform[5];
+          if (lastY !== null && Math.abs(y - lastY) > 2) { text += line.trim() + '\n'; line = ''; }
+          line += it.str + (it.hasEOL ? '' : ' '); lastY = y;
+        }
+        text += line.trim() + '\n\n';
+      }
+    } else {
+      text = await file.text();
+    }
+    text = text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    if (text.length < 40) throw new Error('No encontramos texto en el archivo (¿es un PDF escaneado?). Pégalo como texto.');
+    $('#o-cv').value = text;
+    drop.classList.add('ok'); txt.textContent = '✅ ' + file.name + ' leído — revisa el texto abajo';
+  } catch (e) {
+    drop.classList.remove('ok'); txt.textContent = '❌ ' + e.message;
+  }
+}
+$('#o-file').addEventListener('change', e => { const f = e.target.files[0]; if (f) readCvFile(f); });
+['dragover', 'dragenter'].forEach(ev => $('#o-drop').addEventListener(ev, e => { e.preventDefault(); $('#o-drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => $('#o-drop').addEventListener(ev, e => { e.preventDefault(); $('#o-drop').classList.remove('over'); }));
+$('#o-drop').addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) readCvFile(f); });
+
+$('#o-submit').addEventListener('click', async () => {
+  const st = $('#o-status');
+  const body = {
+    name: $('#o-name').value.trim(), email: $('#o-email').value.trim(), phone: $('#o-phone').value.trim(),
+    location: $('#o-location').value.trim(), target: $('#o-target').value.trim(), base_cv: $('#o-cv').value.trim(),
+  };
+  if (body.base_cv.length < 40) { st.textContent = '❌ Sube o pega tu CV para continuar.'; st.className = 'status err'; return; }
+  if (!body.target) { st.textContent = '❌ Dinos qué puesto buscas.'; st.className = 'status err'; $('#o-target').focus(); return; }
+  $('#o-submit').disabled = true;
+  try {
+    await jpost('/api/onboarding', body);
+    try { localStorage.removeItem('jobswiper_onb_seen'); } catch (e) {}
+    if (body.target) $('#s-keywords').value = body.target;
+    onbShow(3); onbPoll();
+  } catch (e) { st.textContent = '❌ ' + e.message; st.className = 'status err'; }
+  finally { $('#o-submit').disabled = false; }
+});
+
+const ONB_ICON = { pending: '○', running: '⏳', done: '✅', error: '⚠️' };
+async function onbPoll() {
+  clearTimeout(onb.timer);
+  try {
+    const [st, deckRes] = await Promise.all([api('/api/onboarding/status'), api('/api/deck')]);
+    $('#o-steps').innerHTML = (st.steps || []).map(s =>
+      `<li class="${s.state}"><span class="ic">${ONB_ICON[s.state] || '○'}</span><div>${esc(s.label)}${s.detail ? `<small>${esc(s.detail)}</small>` : ''}</div></li>`).join('');
+    // Solo los empleos que encontró ESTA búsqueda (no los que ya había en la base)
+    const jobs = (deckRes.jobs || []).filter(j => !st.started || (j.created_at || 0) >= st.started - 1);
+    const feed = $('#o-feed');
+    const fresh = jobs.filter(j => !onb.seen.has(j.id));
+    if (fresh.length) {
+      feed.querySelector('.onb-feed-empty')?.remove();
+      // De a poco, para que se note que van llegando
+      fresh.slice(0, 40).forEach((j, i) => {
+        onb.seen.add(j.id);
+        setTimeout(() => {
+          const el = document.createElement('div'); el.className = 'onb-job';
+          el.innerHTML = `<b>${esc(j.title)}</b><span>${esc(j.company || '')} · ${esc(j.location || '')} · ${esc(j.source || '')}</span>`;
+          feed.prepend(el);
+        }, i * 140);
+      });
+    }
+    $('#o-count').textContent = jobs.length;
+    const go = $('#o-go');
+    if (st.done || !st.running) {
+      $('#o-cfg-title').textContent = st.error ? 'Hubo un problema, pero puedes continuar' : '¡Tu perfil está listo! 🎉';
+      $('.onb-orb').classList.add('done');
+      if (st.error) { $('#o-cfg-status').textContent = '⚠️ ' + st.error; $('#o-cfg-status').className = 'status err'; }
+      go.disabled = false;
+      go.textContent = jobs.length ? `🔥 Empezar a swipear (${jobs.length})` : 'Ir a la app →';
+      return;
+    }
+    if (jobs.length >= 3) { go.disabled = false; go.textContent = `🔥 Empezar ya (${jobs.length}) — seguimos buscando`; }
+  } catch (e) {}
+  onb.timer = setTimeout(onbPoll, 2000);
+}
+
+$('#o-go').addEventListener('click', async () => {
+  $('#onb').hidden = true;
+  clearTimeout(onb.timer);
+  try { localStorage.setItem('jobswiper_onb_seen', '1'); } catch (e) {}
+  await loadConfig();
+  await reloadDeck();
+  goPanel('swipe');
+  // Si la búsqueda sigue en segundo plano, refrescamos el deck mientras llegan empleos
+  const refill = setInterval(async () => {
+    const st = await api('/api/onboarding/status').catch(() => ({}));
+    if (state.queue.length < 3) reloadDeck();
+    if (!st.running) { clearInterval(refill); reloadDeck(); }
+  }, 5000);
+});
+
+
+$('#btn-reset').addEventListener('click', async () => {
+  const jobs = $('#reset-jobs').checked;
+  if (!confirm('¿Seguro? Se borrarán tu CV, tu perfil y el chat' + (jobs ? ', y los empleos pendientes' : '') + '.')) return;
+  try {
+    await jpost('/api/reset', { jobs });
+    try { localStorage.removeItem('jobswiper_onb_seen'); } catch (e) {}
+    location.reload();
+  } catch (e) { toast('❌ ' + e.message); }
+});
+
+/* ===================== una pregunta tras cada swipe ===================== */
+let qBusy = false;
+async function maybeAskQuestion() {
+  const card = $('#q-card');
+  if (qBusy || !card.hidden) return;
+  qBusy = true;
+  try {
+    const { question: q, remaining } = await api('/api/profile/question');
+    if (!q) return;
+    card.innerHTML = `
+      <div class="q-top"><span>💡 Para afinar tus CVs</span><span>${remaining} pendiente${remaining === 1 ? '' : 's'}</span></div>
+      <div class="q-text">${esc(q.q)}</div>
+      ${q.options
+        ? `<div class="chips">${q.options.map(o => `<div class="chip" data-v="${esc(o)}">${esc(o)}</div>`).join('')}</div>`
+        : `<div class="q-input"><input placeholder="${esc(q.placeholder || '')}"><button class="primary" style="flex:0">OK</button></div>`}
+      <button class="q-skip">Prefiero no responder</button>`;
+    card.hidden = false;
+    const send = async (payload) => {
+      card.hidden = true;
+      try {
+        const r = await jpost('/api/profile/answer', { key: q.key, ...payload });
+        if (!payload.skip) state.profile = { ...(state.profile || {}), [q.key]: payload.value };
+        if (r.remaining === 0) toast('🎉 Perfil completo. Actualizando tu CV general…', 4500);
+      } catch (e) { toast('❌ ' + e.message); }
+    };
+    card.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => send({ value: c.dataset.v })));
+    const inp = card.querySelector('input');
+    if (inp) {
+      const ok = () => inp.value.trim() && send({ value: inp.value.trim() });
+      card.querySelector('.q-input button').addEventListener('click', ok);
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') ok(); e.stopPropagation(); });
+    }
+    card.querySelector('.q-skip').addEventListener('click', () => send({ skip: true }));
+  } catch (e) {} finally { qBusy = false; }
+}
+
+
+/* ===================== CV general ===================== */
+let masterCv = null, masterTimer = null;
+async function loadMasterCv() {
+  clearTimeout(masterTimer);
+  try {
+    const r = await api('/api/master-cv');
+    masterCv = r.master_cv;
+    const el = $('#master-state');
+    if (r.running) el.innerHTML = '⏳ Generando tu CV general…';
+    else if (r.error) el.innerHTML = '⚠️ ' + esc(r.error);
+    else if (!masterCv) el.innerHTML = 'Aún no tienes CV general. Pulsa <b>Regenerar</b> para crearlo.';
+    else el.innerHTML = '✅ Listo' + (r.updated_at ? ' · actualizado ' + new Date(r.updated_at * 1000).toLocaleString() : '')
+      + (r.stale ? ' · <b>hay respuestas nuevas</b>, regenéralo para incluirlas' : '');
+    $$('#master-box [data-master="view"], #master-box [data-master="pdf"]').forEach(b => b.disabled = !masterCv);
+    if (r.running) masterTimer = setTimeout(loadMasterCv, 3000);
+  } catch (e) {}
+}
+$('#master-box').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-master]'); if (!b) return;
+  const lang = b.dataset.lang || 'es';
+  if (b.dataset.master === 'regen') {
+    try { await jpost('/api/master-cv/regenerate'); loadMasterCv(); } catch (err) { toast('❌ ' + err.message); }
+  } else if (masterCv && b.dataset.master === 'view') {
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(buildStandaloneDoc(renderDocInner('resume', masterCv, lang), true, true, false)); w.document.title = 'CV general'; w.document.close(); }
+  } else if (masterCv && b.dataset.master === 'pdf') {
+    downloadDocPDF('resume', masterCv, `CV_General_${lang.toUpperCase()}`, lang);
+  }
+});

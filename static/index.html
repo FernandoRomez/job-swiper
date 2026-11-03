@@ -33,6 +33,18 @@
       <textarea id="base-cv" rows="12" placeholder="Nombre completo · email · teléfono · ciudad&#10;&#10;PERFIL&#10;...&#10;&#10;EXPERIENCIA&#10;- Puesto en Empresa (año–año): logros...&#10;&#10;EDUCACIÓN&#10;...&#10;&#10;HABILIDADES / CERTIFICACIONES&#10;..."></textarea>
     </div>
 
+    <div class="box" id="master-box">
+      <h2>⭐ Tu CV general</h2>
+      <p class="hint">Tu mejor CV en <b>una sola página</b>. Es la base de la que parten todos los CVs adaptados a cada oferta. Se actualiza solo cuando completas las preguntas de tu perfil.</p>
+      <div id="master-state" class="hint"></div>
+      <div class="row" style="gap:8px">
+        <button class="ghost" data-master="view" data-lang="es" style="flex:0;white-space:nowrap">👁 Ver (ES)</button>
+        <button class="ghost" data-master="view" data-lang="en" style="flex:0;white-space:nowrap">👁 View (EN)</button>
+        <button class="ghost" data-master="pdf" data-lang="es" style="flex:0;white-space:nowrap">⬇️ PDF</button>
+        <button class="ghost" data-master="regen" style="flex:0;white-space:nowrap">🔄 Regenerar</button>
+      </div>
+    </div>
+
     <div class="box">
       <h2>🧭 Preguntas iniciales</h2>
       <p class="hint">Con esto la IA elige los mejores títulos de puesto y prioriza empleos con más probabilidad de aceptación para tu perfil.</p>
@@ -40,7 +52,7 @@
       <div class="row">
         <div>
           <label>Ciudad / ubicación actual</label>
-          <input id="p-location" placeholder="Raleigh, NC">
+          <input id="p-location" placeholder="Tu ciudad, país">
         </div>
         <div>
           <label>Años de experiencia</label>
@@ -82,7 +94,7 @@
       </div>
 
       <label>Autorización para trabajar / país</label>
-      <input id="p-authorization" placeholder="Ciudadano/Residente USA, visa H1B, etc.">
+      <input id="p-authorization" placeholder="Países donde puedes trabajar legalmente">
     </div>
 
     <button class="primary" id="save-profile">💾 Guardar perfil</button>
@@ -92,6 +104,14 @@
 
   <!-- ================= SWIPE ================= -->
   <section class="panel" id="panel-swipe">
+    <div class="swipe-bar">
+      <div class="swipe-count"><b id="deck-count">0</b> empleos por revisar</div>
+      <div class="swipe-bar-actions">
+        <span class="pill" id="li-pill-mini" title="Sesión de LinkedIn"><span class="led"></span> LinkedIn</span>
+        <button class="ghost sm" id="btn-drawer">🔍 Buscar más</button>
+      </div>
+    </div>
+    <div id="search-drawer" hidden>
     <div class="box">
       <h2>🔗 LinkedIn</h2>
       <p class="hint">Se abrirá un navegador real donde <b>tú</b> inicias sesión en LinkedIn. Nunca escribimos tu contraseña; la sesión queda guardada en tu equipo para próximas búsquedas.</p>
@@ -113,7 +133,7 @@
       <h2>🔍 Buscar empleos (Easy Apply)</h2>
       <div class="row">
         <div style="flex:2"><label>Puesto / palabras clave</label><input id="s-keywords" placeholder="Data Center Technician"></div>
-        <div><label>Ubicación</label><input id="s-location" placeholder="Raleigh, NC"></div>
+        <div><label>Ubicación</label><input id="s-location" placeholder="Ciudad, país o Remoto"></div>
         <div style="max-width:120px"><label>Ofertas</label>
           <select id="s-limit"><option>5</option><option selected>10</option><option>15</option></select>
         </div>
@@ -145,19 +165,23 @@
       <button class="primary" id="btn-add-manual" style="margin-top:12px">Agregar al mazo</button>
     </div>
 
+    </div>
+
     <div id="deck-wrap">
       <div id="deck">
         <div id="deck-empty">
           <div style="font-size:46px">🃏</div>
           <b>El mazo está vacío</b>
-          <span>Busca empleos arriba o agrégalos manualmente.</span>
+          <span>Pulsa <b>🔍 Buscar más</b> para encontrar empleos.</span>
         </div>
       </div>
       <div id="deck-actions">
         <button id="btn-nope" title="Descartar (←)">✕</button>
+        <button id="btn-undo" title="Regresar al anterior (Z)" disabled>↶</button>
         <button id="btn-like" title="Me interesa (→)">♥</button>
       </div>
-      <div class="deck-hint">Arrastra la tarjeta, usa los botones o las flechas ← →. Deslizar ♥ genera automáticamente tu Resume, CV y Cover Letter para ese empleo.</div>
+      <div id="q-card" hidden></div>
+      <div class="deck-hint">← descartar · ↶ regresar (Z) · → me interesa y genera tu CV</div>
     </div>
   </section>
 
@@ -227,7 +251,7 @@
       </div>
       <div class="db-filters">
         <input id="db-text" placeholder="🔍 Buscar por puesto, empresa o palabra...">
-        <input id="db-loc" placeholder="📍 Filtrar por ubicación (ej: Raleigh)">
+        <input id="db-loc" placeholder="📍 Filtrar por ubicación (ej: Remoto, tu ciudad)">
         <select id="db-filter">
           <option value="">Todos los estados</option>
           <option value="new">Nuevos (en el mazo)</option>
@@ -262,10 +286,10 @@
       </div>
       <div id="chat-messages" class="chat-messages"></div>
       <div class="chat-suggestions">
-        <button class="chip chat-suggestion">Busca datacenter technician en Raleigh NC</button>
-        <button class="chip chat-suggestion">Ahora lo mismo pero en Alemania</button>
-        <button class="chip chat-suggestion">Que no pidan ciudadanía americana</button>
-        <button class="chip chat-suggestion">¿Cuáles guardados hay en Raleigh?</button>
+        <button class="chip chat-suggestion">Busca empleos de mi área cerca de mí</button>
+        <button class="chip chat-suggestion">Ahora lo mismo pero remoto</button>
+        <button class="chip chat-suggestion">Solo de tiempo completo</button>
+        <button class="chip chat-suggestion">¿Cuáles guardados me recomiendas?</button>
       </div>
       <div class="chat-input-bar">
         <textarea id="chat-input" rows="1" placeholder="Dime qué buscar o pregúntame sobre tus empleos... (Enter para enviar)"></textarea>
@@ -358,9 +382,65 @@
       <button class="ghost" id="btn-notif">🔔 Activar notificaciones</button>
       <span class="status" id="notif-status" style="display:inline-block;margin-left:8px"></span>
     </div>
+    <div class="box reset-box">
+      <h2>🔄 Empezar de cero</h2>
+      <p class="hint">Borra tu CV, tu perfil, tus respuestas, tu CV general y el chat, y vuelve a mostrar la bienvenida. Tu API key y los ajustes se conservan.</p>
+      <label class="check"><input type="checkbox" id="reset-jobs" checked> Borrar también los empleos pendientes de revisar (los que te gustaron y tus solicitudes se conservan)</label>
+      <button class="danger" id="btn-reset">🔄 Reiniciar todo</button>
+    </div>
   </section>
 
 </main>
+
+<!-- ================= BIENVENIDA (onboarding) ================= -->
+<div id="onb" hidden>
+  <div class="onb-card">
+    <div class="onb-dots"><i class="on"></i><i></i><i></i><i></i></div>
+
+    <div class="onb-step" data-step="0">
+      <div class="onb-emoji">👋</div>
+      <h1>Bienvenido a <span class="grad">JobSwiper</span></h1>
+      <p class="onb-sub">Encontramos empleos para ti, los deslizas como en Tinder y te preparamos un CV a la medida de cada uno. Empezamos con lo básico: toma menos de un minuto.</p>
+      <button class="primary onb-next">Empezar →</button>
+    </div>
+
+    <div class="onb-step" data-step="1" hidden>
+      <h2>¿Cómo te llamas?</h2>
+      <p class="onb-sub">Estos datos van en el encabezado de tus CVs.</p>
+      <label>Nombre completo *</label><input id="o-name" autocomplete="name" placeholder="Ada Lovelace">
+      <div class="row">
+        <div><label>Email</label><input id="o-email" type="email" autocomplete="email" placeholder="tu@email.com"></div>
+        <div><label>Teléfono</label><input id="o-phone" autocomplete="tel" placeholder="Tu teléfono"></div>
+      </div>
+      <label>¿Dónde vives?</label><input id="o-location" placeholder="Ciudad, país">
+      <div class="onb-nav"><button class="ghost onb-back">← Atrás</button><button class="primary onb-next">Siguiente →</button></div>
+    </div>
+
+    <div class="onb-step" data-step="2" hidden>
+      <h2>Tu CV</h2>
+      <p class="onb-sub">Súbelo en PDF o pégalo como texto. Nunca inventamos nada que no esté aquí.</p>
+      <label class="onb-drop" id="o-drop">
+        <input type="file" id="o-file" accept=".pdf,.txt,.md" hidden>
+        <span id="o-drop-text">📄 Arrastra tu CV aquí o <u>elige un archivo</u> (PDF o TXT)</span>
+      </label>
+      <textarea id="o-cv" rows="7" placeholder="…o pega aquí el texto de tu CV"></textarea>
+      <label>¿Qué puesto buscas? *</label>
+      <input id="o-target" placeholder="Ingeniero de automatización, soporte IT…">
+      <div class="status" id="o-status"></div>
+      <div class="onb-nav"><button class="ghost onb-back">← Atrás</button><button class="primary" id="o-submit">✨ Buscar mis empleos</button></div>
+    </div>
+
+    <div class="onb-step" data-step="3" hidden>
+      <div class="onb-orb"></div>
+      <h2 id="o-cfg-title">Estamos configurando tu mejor perfil…</h2>
+      <ul class="onb-steps" id="o-steps"></ul>
+      <div class="onb-feed-head"><span>Empleos encontrados</span><b id="o-count">0</b></div>
+      <div class="onb-feed" id="o-feed"><div class="onb-feed-empty">Los empleos irán apareciendo aquí ✨</div></div>
+      <div class="status" id="o-cfg-status"></div>
+      <button class="primary" id="o-go" disabled>Esperando empleos…</button>
+    </div>
+  </div>
+</div>
 
 <div id="mcp-banner" hidden>
   <span class="mcp-spin">🤖</span>

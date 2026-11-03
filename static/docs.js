@@ -229,7 +229,7 @@ function previewDoc(iframe, kind, docs, lang) {
 function downloadDocPDF(kind, docs, filename, lang) {
   const w = window.open('', '_blank');
   if (!w) { alert('Permite las ventanas emergentes para descargar el PDF.'); return; }
-  w.document.write(buildStandaloneDoc(renderDocInner(kind, docs, lang), true, kind === 'resume'));
+  w.document.write(buildStandaloneDoc(renderDocInner(kind, docs, lang), true, kind !== 'cover_letter'));
   w.document.title = filename || 'documento';
   w.document.close();
   w.focus();  // el print se dispara solo dentro del documento, tras ajustar a una hoja

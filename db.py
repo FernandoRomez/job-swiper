@@ -231,6 +231,15 @@ def get_chat():
     return [dict(r) for r in rows]
 
 
+def delete_jobs_by_status(status):
+    """Borra los empleos con ese estado (y sus resúmenes). Devuelve cuántos."""
+    with _lock, _conn() as c:
+        ids = [r[0] for r in c.execute('SELECT id FROM jobs WHERE status=?', (status,))]
+        c.executemany('DELETE FROM highlights WHERE job_id=?', [(i,) for i in ids])
+        c.execute('DELETE FROM jobs WHERE status=?', (status,))
+    return len(ids)
+
+
 def clear_chat():
     with _lock, _conn() as c:
         c.execute('DELETE FROM chat')

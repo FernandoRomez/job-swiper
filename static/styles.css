@@ -553,3 +553,86 @@ button.ghost:hover { border-color: var(--accent); }
   padding: 8px 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .scrape-all:hover { filter: brightness(1.1); }
 .scrape-all:disabled { opacity: .7; cursor: progress; }
+
+/* ---------- bienvenida (onboarding) ---------- */
+#onb { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(900px 500px at 70% 0%, #241c5c 0%, transparent 60%),
+              radial-gradient(800px 500px at 0% 100%, #0c3340 0%, transparent 60%), var(--bg);
+  overflow-y: auto; }
+#onb[hidden] { display: none; }
+.onb-card { width: 100%; max-width: 560px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 24px; padding: 30px 28px; box-shadow: var(--shadow); }
+.onb-step { animation: fade .3s ease; }
+.onb-step h1 { font-size: 30px; letter-spacing: -.03em; margin-bottom: 10px; }
+.onb-step h2 { font-size: 22px; letter-spacing: -.02em; margin-bottom: 6px; }
+.onb-sub { color: var(--muted); line-height: 1.55; margin-bottom: 18px; font-size: 14.5px; }
+.onb-emoji { font-size: 44px; margin-bottom: 8px; }
+.grad { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.onb-dots { display: flex; gap: 6px; margin-bottom: 22px; }
+.onb-dots i { height: 4px; flex: 1; border-radius: 4px; background: var(--border); transition: background .3s; }
+.onb-dots i.on { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+.onb-nav { display: flex; justify-content: space-between; margin-top: 22px; gap: 10px; }
+.onb-drop { display: block; border: 1.5px dashed var(--border); border-radius: 14px; padding: 18px; text-align: center;
+  color: var(--muted); cursor: pointer; margin: 0 0 10px; font-size: 14px; transition: all .15s; }
+.onb-drop:hover, .onb-drop.over { border-color: var(--accent); color: var(--text); background: rgba(124,92,255,.07); }
+.onb-drop.ok { border-color: var(--like); color: var(--like); border-style: solid; }
+.onb-orb { width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 14px;
+  background: conic-gradient(from 0deg, var(--accent), var(--accent2), var(--accent));
+  animation: spin 1.6s linear infinite; -webkit-mask: radial-gradient(circle, transparent 52%, #000 54%); mask: radial-gradient(circle, transparent 52%, #000 54%); }
+.onb-orb.done { animation: none; background: var(--like); }
+@keyframes spin { to { transform: rotate(360deg); } }
+#o-cfg-title { text-align: center; margin-bottom: 16px; }
+.onb-steps { list-style: none; display: grid; gap: 8px; margin-bottom: 18px; }
+.onb-steps li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--muted); }
+.onb-steps li .ic { width: 20px; text-align: center; flex: none; }
+.onb-steps li.running { color: var(--text); }
+.onb-steps li.done { color: var(--text); }
+.onb-steps li small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.onb-steps li.running .ic { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.onb-feed-head { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+.onb-feed-head b { color: var(--accent2); font-size: 14px; }
+.onb-feed { max-height: 220px; overflow-y: auto; display: grid; gap: 6px; margin-bottom: 16px; }
+.onb-feed-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 18px; border: 1px dashed var(--border); border-radius: 12px; }
+.onb-job { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 9px 12px;
+  animation: slidein .45s cubic-bezier(.2,.9,.3,1.2); }
+.onb-job b { display: block; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.onb-job span { font-size: 12px; color: var(--muted); }
+@keyframes slidein { from { opacity: 0; transform: translateY(-10px) scale(.97); } to { opacity: 1; transform: none; } }
+#o-go { width: 100%; }
+#mcp-banner { z-index: 250; }
+.reset-box { border-color: rgba(244,63,94,.35); }
+.reset-box .check { display: flex; gap: 8px; align-items: center; margin: 4px 0 14px; color: var(--muted); font-size: 13px; cursor: pointer; }
+.reset-box .check input { width: auto; }
+button.danger { background: transparent; color: var(--nope); border: 1px solid var(--nope); padding: 10px 18px;
+  border-radius: 11px; cursor: pointer; font-weight: 600; font-size: 14px; }
+button.danger:hover { background: rgba(244,63,94,.12); }
+
+/* ---------- pregunta tras cada swipe ---------- */
+#q-card { margin: 14px auto 0; max-width: 420px; background: var(--card); border: 1px solid var(--accent);
+  border-radius: 16px; padding: 16px 18px; box-shadow: 0 10px 30px rgba(124,92,255,.25); animation: slidein .35s ease; }
+#q-card[hidden] { display: none; }
+#q-card .q-top { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-bottom: 6px; }
+#q-card .q-text { font-weight: 600; font-size: 15px; margin-bottom: 10px; }
+#q-card .q-input { display: flex; gap: 8px; }
+#q-card .q-input input { flex: 1; }
+#q-card .q-skip { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; margin-top: 10px; }
+#q-card .q-skip:hover { color: var(--text); }
+@media (max-width: 520px) { .onb-card { padding: 22px 16px; } .onb-step h1 { font-size: 25px; } }
+
+/* ---------- swipe: barra superior limpia + cajón de búsqueda ---------- */
+.swipe-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: min(560px, 96vw); margin: 0 auto 10px; }
+.swipe-count { color: var(--muted); font-size: 14px; }
+.swipe-count b { color: var(--text); font-size: 18px; margin-right: 2px; }
+.swipe-bar-actions { display: flex; align-items: center; gap: 8px; }
+button.sm { padding: 7px 13px; font-size: 13px; }
+#btn-drawer.open { border-color: var(--accent); color: var(--text); }
+#search-drawer { animation: fade .25s ease; margin-bottom: 14px; }
+#search-drawer[hidden] { display: none; }
+#btn-undo { width: 48px !important; height: 48px !important; font-size: 20px !important; align-self: center;
+  color: #fbbf24; border-color: #fbbf24 !important; }
+#btn-undo:hover:not(:disabled) { box-shadow: 0 0 18px rgba(251,191,36,.4); }
+#btn-undo:disabled { opacity: .25; cursor: default; transform: none; }
+.jobcard.undo-in { animation: undoin .35s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes undoin { from { opacity: 0; transform: translateX(-140px) rotate(-10deg); } }
